@@ -10,7 +10,7 @@ void main() {
     expect(() => parseMoney('-10'), throwsFormatException);
   });
   test('monthly day 31 clamps to February including leap years', () {
-    final rows = <Row>[
+    final rows = <Json>[
       {
         'id': 'x',
         'kind': 'expense',
@@ -30,7 +30,7 @@ void main() {
     expect(occurrences(rows, [], DateTime(2023, 12)), isEmpty);
   });
   test('once entries only belong to their month', () {
-    final rows = <Row>[
+    final rows = <Json>[
       {
         'id': 'x',
         'kind': 'income',
@@ -43,7 +43,7 @@ void main() {
     expect(occurrences(rows, [], DateTime(2026, 10)).length, 1);
   });
   test('settlement keeps historical paid amount', () {
-    final rows = <Row>[
+    final rows = <Json>[
       {
         'id': 'x',
         'kind': 'expense',
@@ -52,7 +52,7 @@ void main() {
         'start_date': '2026-10-14',
       },
     ];
-    final paid = <Row>[
+    final paid = <Json>[
       {'entry_id': 'x', 'occurrence': '2026-10-14', 'amount_cents': 15000},
     ];
     final summary = MonthSummary(occurrences(rows, paid, DateTime(2026, 10)));
@@ -61,7 +61,7 @@ void main() {
     expect(summary.balance, -15000);
   });
   test('end dates stop recurrence without dropping the final day', () {
-    final rows = <Row>[
+    final rows = <Json>[
       {
         'id': 'x',
         'kind': 'expense',
@@ -93,5 +93,11 @@ void main() {
       }),
       0,
     );
+  });
+  test('measurements use the pt-BR decimal separator', () {
+    expect(decimal(3255 / 1000), '3,255');
+    expect(decimal(49), '49');
+    expect(decimal(1234.5), '1.234,5');
+    expect(decimal(3.27, digits: 1), '3,3');
   });
 }

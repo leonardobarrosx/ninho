@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -22,8 +23,8 @@ const resources = [
 class Store extends ChangeNotifier {
   final bool demo;
   final http.Client _client = http.Client();
-  final Map<String, List<Row>> data = {};
-  List<Row> households = [];
+  final Map<String, List<Json>> data = {};
+  List<Json> households = [];
   String? householdId;
   bool loading = false;
   bool _disposed = false;
@@ -32,14 +33,14 @@ class Store extends ChangeNotifier {
   Store({this.demo = false}) {
     if (demo) _seed();
   }
-  List<Row> rows(String name) => data[name] ?? [];
+  List<Json> rows(String name) => data[name] ?? [];
   String get familyName =>
       households
           .where((r) => r['id'] == householdId)
           .map((r) => r['name'] as String)
           .firstOrNull ??
       'Sua família';
-  Future<dynamic> request(String method, String path, [Row? body]) async {
+  Future<dynamic> request(String method, String path, [Json? body]) async {
     if (!configured)
       throw Exception('Configure a conexão antes de salvar dados reais.');
     var session = Supabase.instance.client.auth.currentSession;
@@ -57,20 +58,24 @@ class Store extends ChangeNotifier {
       'Content-Type': 'application/json',
     });
     if (body != null) req.body = jsonEncode(body);
-    final response = await http.Response.fromStream(
-      await _client.send(req).timeout(const Duration(seconds: 30)),
-    );
-    if (response.statusCode >= 400) {
-      final result = jsonDecode(response.body);
-      throw Exception(
-        result['error'] ?? 'Não foi possível concluir. Tente novamente.',
+    final http.Response response;
+    try {
+      response = await http.Response.fromStream(
+        await _client.send(req).timeout(const Duration(seconds: 30)),
       );
+    } on TimeoutException {
+      throw Exception('O servidor demorou para responder. Tente novamente.');
+    } on http.ClientException {
+      throw Exception('Sem conexão com o servidor. Tente novamente.');
+    }
+    if (response.statusCode >= 400) {
+      throw Exception(_errorText(response.body));
     }
     return response.body.isEmpty ? null : jsonDecode(response.body);
   }
 
-  Future<List<Row>> _load(String resource, {String? familyId}) async {
-    final all = <Row>[];
+  Future<List<Json>> _load(String resource, {String? familyId}) async {
+    final all = <Json>[];
     for (var offset = 0; ; offset += 200) {
       final query = resource == 'households'
           ? '?offset=$offset'
@@ -126,7 +131,12 @@ class Store extends ChangeNotifier {
     await refresh();
   }
 
-  Future<void> save(String resource, Row values, {String? id}) async {
+  Future<void> save(
+    String resource,
+    Json values, {
+    String? id,
+    bool reload = true,
+  }) async {
     if (demo) {
       final list = data.putIfAbsent(resource, () => []);
       if (id == null) {
@@ -147,7 +157,7 @@ class Store extends ChangeNotifier {
       'data/$resource${id == null ? '' : '/$id'}',
       {...values, if (id == null) 'household_id': householdId},
     );
-    await refresh();
+    if (reload) await refresh();
   }
 
   Future<void> remove(String resource, String id) async {
@@ -160,7 +170,7 @@ class Store extends ChangeNotifier {
     await refresh();
   }
 
-  Future<dynamic> rpc(String name, Row args) async {
+  Future<dynamic> rpc(String name, Json args) async {
     if (demo) {
       if (name == 'settle_entry') {
         data['settlements']!.removeWhere(
@@ -211,6 +221,9 @@ class Store extends ChangeNotifier {
       return null;
     }
     final result = await request('POST', 'rpc/$name', args);
+    if (name == 'create_household' || name == 'accept_invite') {
+      householdId = result as String?;
+    }
     await refresh();
     return result;
   }
@@ -404,3 +417,14 @@ class Store extends ChangeNotifier {
 }
 
 String cleanError(Object e) => e.toString().replaceFirst('Exception: ', '');
+
+String _errorText(String body) {
+  try {
+    final result = jsonDecode(body);
+    final error = result is Map ? result['error'] : null;
+    if (error is String) return error;
+  } on FormatException {
+    // Proxies and the host may answer with HTML, for example while waking up.
+  }
+  return 'Não foi possível concluir. Tente novamente.';
+}
