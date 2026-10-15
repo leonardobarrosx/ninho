@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: ninho-api
+    runtime: docker
+    plan: free
+    region: virginia
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /healthz
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false

@@ -1,0 +1,5 @@
+{
+  "API_URL": "https://YOUR-API.onrender.com",
+  "SUPABASE_URL": "https://YOUR-PROJECT.supabase.co",
+  "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_REPLACE_ME"
+}

@@ -1,0 +1,67 @@
+name: Validate and build
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:db
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.2'
+          cache: false
+      - run: go vet ./...
+        working-directory: backend
+      - run: go test -race ./...
+        working-directory: backend
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.7'
+          cache: true
+      - run: flutter pub get
+        working-directory: app
+      - run: dart format --output=none --set-exit-if-changed lib test
+        working-directory: app
+      - run: flutter analyze --no-fatal-infos
+        working-directory: app
+      - run: flutter test
+        working-directory: app
+      - run: flutter build web --release
+        working-directory: app
+      - run: flutter build apk --debug
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ninho-resolved-dependencies
+          path: app/pubspec.lock
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ninho-demo-web
+          path: app/build/web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ninho-demo-android-debug
+          path: app/build/app/outputs/flutter-apk/app-debug.apk
