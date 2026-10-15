@@ -25,6 +25,7 @@ class Store extends ChangeNotifier {
   final http.Client _client = http.Client();
   final Map<String, List<Json>> data = {};
   List<Json> households = [];
+  List<Json> members = [];
   String? householdId;
   bool loading = false;
   bool _disposed = false;
@@ -40,6 +41,12 @@ class Store extends ChangeNotifier {
           .map((r) => r['name'] as String)
           .firstOrNull ??
       'Sua família';
+  bool get isOwner {
+    final me = demo ? null : Supabase.instance.client.auth.currentUser?.id;
+    final family = households.where((h) => h['id'] == householdId);
+    return me != null && family.any((h) => h['owner_id'] == me);
+  }
+
   Future<dynamic> request(String method, String path, [Json? body]) async {
     if (!configured)
       throw Exception('Configure a conexão antes de salvar dados reais.');
@@ -88,6 +95,15 @@ class Store extends ChangeNotifier {
     }
   }
 
+  Future<List<Json>> _members(String? familyId) async {
+    final result = await request('POST', 'rpc/list_members', {
+      'p_household_id': familyId,
+    });
+    return (result as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
   Future<void> refresh() async {
     if (_disposed) return;
     if (demo) {
@@ -106,19 +122,23 @@ class Store extends ChangeNotifier {
         householdId = households.firstOrNull?['id'] as String?;
       if (householdId != null) {
         final selected = householdId;
-        final loaded = await Future.wait(
-          resources.map((r) => _load(r, familyId: selected)),
-        );
+        final loaded = await Future.wait([
+          for (final r in resources) _load(r, familyId: selected),
+          _members(selected),
+        ]);
         if (_disposed || version != _refreshVersion) return;
         for (var i = 0; i < resources.length; i++) {
           data[resources[i]] = loaded[i];
         }
+        members = loaded.last;
       } else {
         data.clear();
+        members = [];
       }
     } catch (e) {
       if (_disposed || version != _refreshVersion) return;
       data.clear();
+      members = [];
       error = cleanError(e);
     }
     loading = false;

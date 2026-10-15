@@ -66,7 +66,7 @@ var fields = map[string]string{
 	"health_events": "household_id,baby_id,title,event_type,event_date,provider,notes,completed",
 }
 var readable = map[string]bool{"households": true, "household_members": true, "babies": true, "entries": true, "settlements": true, "debts": true, "goals": true, "measurements": true, "health_events": true}
-var rpcFields = map[string]string{"create_household": "p_name", "create_invite": "p_household_id", "accept_invite": "p_token", "settle_entry": "p_entry_id,p_occurrence,p_paid", "buy_goal": "p_goal_id,p_quantity,p_cost_cents,p_date", "record_health_cost": "p_event_id,p_amount_cents,p_date"}
+var rpcFields = map[string]string{"create_household": "p_name", "create_invite": "p_household_id", "accept_invite": "p_token", "settle_entry": "p_entry_id,p_occurrence,p_paid", "buy_goal": "p_goal_id,p_quantity,p_cost_cents,p_date", "record_health_cost": "p_event_id,p_amount_cents,p_date", "list_members": "p_household_id", "remove_member": "p_household_id,p_user_id", "leave_household": "p_household_id"}
 
 // Exception messages raised by the migrations' functions and triggers, shown to the user in Portuguese.
 var dbErrors = map[string]string{
@@ -79,6 +79,9 @@ var dbErrors = map[string]string{
 	"Invalid purchase":                        "Confira a quantidade e o valor da aquisição",
 	"Invalid occurrence":                      "Data fora da programação deste lançamento",
 	"End date cannot remove paid occurrences": "A data final não pode excluir ocorrências já pagas",
+	"Only the owner can remove members":       "Só quem criou a família pode remover pessoas",
+	"Owner cannot leave":                      "Quem criou a família não pode sair dela",
+	"Not a member":                            "Essa pessoa não faz parte desta família",
 	"Close this schedule and create a new entry to preserve paid history": "Há pagamentos registrados. Encerre este lançamento e crie outro para mudar valor, tipo ou início",
 }
 
