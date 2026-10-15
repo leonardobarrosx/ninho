@@ -1559,9 +1559,45 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Convites são gerados pelo criador da família. Quem entrar poderá ver e editar finanças e registros de saúde. Gere somente para pessoas que devem compartilhar esses dados.',
+              'Convites são gerados pelo criador da família. Quem entrar poderá ver e editar finanças e registros de saúde. Gere somente para pessoas que devem compartilhar esses dados. Quem criou a família pode remover pessoas a qualquer momento.',
               style: TextStyle(color: muted, height: 1.6, fontSize: 13),
             ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 20),
+      Panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SectionTitle('Pessoas nesta família'),
+            if (s.members.isEmpty)
+              const Text(
+                'As pessoas aparecem aqui quando entram com um convite.',
+                style: TextStyle(color: muted),
+              ),
+            for (final m in s.members)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(m['email'] as String? ?? 'Sem e-mail'),
+                subtitle: Text(
+                  m['role'] == 'owner' ? 'Criou a família' : 'Participa',
+                ),
+                trailing: s.isOwner && m['role'] != 'owner'
+                    ? TextButton(
+                        onPressed: saving ? null : () => removeMember(m),
+                        child: const Text('Remover'),
+                      )
+                    : null,
+              ),
+            if (!s.isOwner && !s.demo)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: OutlinedButton(
+                  onPressed: saving ? null : leaveFamily,
+                  child: const Text('Sair desta família'),
+                ),
+              ),
           ],
         ),
       ),
@@ -1617,6 +1653,61 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> removeMember(Json member) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remover da família?'),
+        content: Text(
+          '${member['email']} perde o acesso aos dados desta família. Convites ainda não usados deixam de valer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remover'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await perform(
+      () => s.rpc('remove_member', {
+        'p_household_id': s.householdId,
+        'p_user_id': member['user_id'],
+      }),
+    );
+  }
+
+  Future<void> leaveFamily() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Sair de ${s.familyName}?'),
+        content: const Text(
+          'Você perde o acesso aos dados desta família. Para voltar, será preciso um novo convite.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sair'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await perform(
+      () => s.rpc('leave_household', {'p_household_id': s.householdId}),
     );
   }
 }
