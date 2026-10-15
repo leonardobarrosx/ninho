@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -57,14 +58,18 @@ class Store extends ChangeNotifier {
       'Content-Type': 'application/json',
     });
     if (body != null) req.body = jsonEncode(body);
-    final response = await http.Response.fromStream(
-      await _client.send(req).timeout(const Duration(seconds: 30)),
-    );
-    if (response.statusCode >= 400) {
-      final result = jsonDecode(response.body);
-      throw Exception(
-        result['error'] ?? 'Não foi possível concluir. Tente novamente.',
+    final http.Response response;
+    try {
+      response = await http.Response.fromStream(
+        await _client.send(req).timeout(const Duration(seconds: 30)),
       );
+    } on TimeoutException {
+      throw Exception('O servidor demorou para responder. Tente novamente.');
+    } on http.ClientException {
+      throw Exception('Sem conexão com o servidor. Tente novamente.');
+    }
+    if (response.statusCode >= 400) {
+      throw Exception(_errorText(response.body));
     }
     return response.body.isEmpty ? null : jsonDecode(response.body);
   }
@@ -126,7 +131,12 @@ class Store extends ChangeNotifier {
     await refresh();
   }
 
-  Future<void> save(String resource, Json values, {String? id}) async {
+  Future<void> save(
+    String resource,
+    Json values, {
+    String? id,
+    bool reload = true,
+  }) async {
     if (demo) {
       final list = data.putIfAbsent(resource, () => []);
       if (id == null) {
@@ -147,7 +157,7 @@ class Store extends ChangeNotifier {
       'data/$resource${id == null ? '' : '/$id'}',
       {...values, if (id == null) 'household_id': householdId},
     );
-    await refresh();
+    if (reload) await refresh();
   }
 
   Future<void> remove(String resource, String id) async {
@@ -211,6 +221,9 @@ class Store extends ChangeNotifier {
       return null;
     }
     final result = await request('POST', 'rpc/$name', args);
+    if (name == 'create_household' || name == 'accept_invite') {
+      householdId = result as String?;
+    }
     await refresh();
     return result;
   }
@@ -404,3 +417,14 @@ class Store extends ChangeNotifier {
 }
 
 String cleanError(Object e) => e.toString().replaceFirst('Exception: ', '');
+
+String _errorText(String body) {
+  try {
+    final result = jsonDecode(body);
+    final error = result is Map ? result['error'] : null;
+    if (error is String) return error;
+  } on FormatException {
+    // Proxies and the host may answer with HTML, for example while waking up.
+  }
+  return 'Não foi possível concluir. Tente novamente.';
+}

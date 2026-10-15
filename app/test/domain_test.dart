@@ -94,4 +94,10 @@ void main() {
       0,
     );
   });
+  test('measurements use the pt-BR decimal separator', () {
+    expect(decimal(3255 / 1000), '3,255');
+    expect(decimal(49), '49');
+    expect(decimal(1234.5), '1.234,5');
+    expect(decimal(3.27, digits: 1), '3,3');
+  });
 }
