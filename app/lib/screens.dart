@@ -81,8 +81,8 @@ class _HomeScreenState extends State<HomeScreen> {
     String resource,
     String title,
     List<FieldSpec> fields, {
-    Row? row,
-    Row defaults = const {},
+    Json? row,
+    Json defaults = const {},
     String? help,
   }) async {
     final result = await editForm(
@@ -96,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
       await perform(() => s.save(resource, result, id: row?['id'] as String?));
   }
 
-  Future<void> remove(String resource, Row row) async {
+  Future<void> remove(String resource, Json row) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -120,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
       await perform(() => s.remove(resource, row['id'] as String));
   }
 
-  Widget actions(String resource, Row row, VoidCallback onEdit) =>
+  Widget actions(String resource, Json row, VoidCallback onEdit) =>
       PopupMenuButton<String>(
         tooltip: 'Opções do registro',
         enabled: !saving,
@@ -577,7 +577,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void editEntry([Row? row]) {
+  void editEntry([Json? row]) {
     final hasPaid =
         row != null &&
         s.rows('settlements').any((p) => p['entry_id'] == row['id']);
@@ -810,7 +810,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void editDebt([Row? row]) => edit(
+  void editDebt([Json? row]) => edit(
     'debts',
     row == null ? 'Nova dívida' : 'Editar dívida',
     const [
@@ -824,7 +824,7 @@ class _HomeScreenState extends State<HomeScreen> {
     row: row,
     defaults: const {'due_day': 10, 'installment_cents': 0},
   );
-  void editGoal([Row? row]) => edit(
+  void editGoal([Json? row]) => edit(
     'goals',
     row == null ? 'Nova meta' : 'Editar meta',
     const [
@@ -912,7 +912,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget goalGrid(List<Row> list) => LayoutBuilder(
+  Widget goalGrid(List<Json> list) => LayoutBuilder(
     builder: (context, b) {
       final cols = b.maxWidth > 1050
           ? 3
@@ -932,7 +932,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     },
   );
-  Widget goalCard(Row g) {
+  Widget goalCard(Json g) {
     final quantity = number(g, 'quantity');
     final acquired = number(g, 'acquired');
     final done = acquired >= quantity;
@@ -1006,7 +1006,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> purchase(Row g) async {
+  Future<void> purchase(Json g) async {
     final max = number(g, 'quantity') - number(g, 'acquired');
     final data = await editForm(
       context,
@@ -1084,7 +1084,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void editBaby([Row? row]) => edit(
+  void editBaby([Json? row]) => edit(
     'babies',
     row == null ? 'Cadastrar bebê' : 'Editar bebê',
     const [
@@ -1260,7 +1260,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> editMeasure(String id, [Row? row]) async {
+  Future<void> editMeasure(String id, [Json? row]) async {
     final result = await editForm(
       context,
       'Registrar medida',
@@ -1304,7 +1304,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void editHealth([Row? row]) => edit(
+  void editHealth([Json? row]) => edit(
     'health_events',
     row == null ? 'Novo registro de saúde' : 'Editar registro',
     [
@@ -1444,7 +1444,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> healthCost(Row e) async {
+  Future<void> healthCost(Json e) async {
     final result = await editForm(
       context,
       'Registrar custo',
