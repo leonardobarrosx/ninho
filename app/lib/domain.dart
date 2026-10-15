@@ -1,13 +1,13 @@
 import 'package:intl/intl.dart';
 
-typedef Row = Map<String, dynamic>;
+typedef Json = Map<String, dynamic>;
 String money(num cents) =>
     NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(cents / 100);
 String dateText(String? value) => value == null || value.isEmpty
     ? 'Sem data'
     : DateFormat('dd/MM/yyyy').format(DateTime.parse(value));
 String iso(DateTime date) => DateFormat('yyyy-MM-dd').format(date);
-int number(Row row, String key) => (row[key] as num? ?? 0).toInt();
+int number(Json row, String key) => (row[key] as num? ?? 0).toInt();
 int parseMoney(String input) {
   var s = input.replaceAll('R\$', '').replaceAll(' ', '').trim();
   if (s.contains(',')) {
@@ -26,9 +26,9 @@ int parseMoney(String input) {
 }
 
 class Occurrence {
-  final Row entry;
+  final Json entry;
   final DateTime date;
-  final Row? settlement;
+  final Json? settlement;
   Occurrence(this.entry, this.date, this.settlement);
   bool get paid => settlement != null;
   bool get income => entry['kind'] == 'income';
@@ -36,8 +36,8 @@ class Occurrence {
 }
 
 List<Occurrence> occurrences(
-  List<Row> entries,
-  List<Row> settlements,
+  List<Json> entries,
+  List<Json> settlements,
   DateTime month,
 ) {
   final first = DateTime(month.year, month.month);
@@ -56,7 +56,7 @@ List<Occurrence> occurrences(
         day.isBefore(start) ||
         (end != null && day.isAfter(end)))
       continue;
-    Row? paid;
+    Json? paid;
     for (final item in settlements) {
       if (item['entry_id'] == entry['id'] && item['occurrence'] == iso(day)) {
         paid = item;
@@ -79,7 +79,7 @@ class MonthSummary {
   int get realized => sum(true, paid: true) - sum(false, paid: true);
 }
 
-int remainingGoal(Row g) {
+int remainingGoal(Json g) {
   final quantity = number(g, 'quantity');
   if (quantity <= 0) return 0;
   final remaining =

@@ -215,7 +215,7 @@ class SectionTitle extends StatelessWidget {
 }
 
 class GrowthChart extends StatelessWidget {
-  final List<Row> rows;
+  final List<Json> rows;
   final String field, title, unit;
   final int divisor;
   const GrowthChart({
@@ -285,7 +285,7 @@ class GrowthChart extends StatelessWidget {
 }
 
 class LinePainter extends CustomPainter {
-  final List<Row> rows;
+  final List<Json> rows;
   final String field;
   final int divisor;
   LinePainter(this.rows, this.field, this.divisor);
