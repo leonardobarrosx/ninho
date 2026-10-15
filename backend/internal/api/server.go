@@ -68,6 +68,20 @@ var fields = map[string]string{
 var readable = map[string]bool{"households": true, "household_members": true, "babies": true, "entries": true, "settlements": true, "debts": true, "goals": true, "measurements": true, "health_events": true}
 var rpcFields = map[string]string{"create_household": "p_name", "create_invite": "p_household_id", "accept_invite": "p_token", "settle_entry": "p_entry_id,p_occurrence,p_paid", "buy_goal": "p_goal_id,p_quantity,p_cost_cents,p_date", "record_health_cost": "p_event_id,p_amount_cents,p_date"}
 
+// Exception messages raised by the migrations' functions and triggers, shown to the user in Portuguese.
+var dbErrors = map[string]string{
+	"Invalid invite":                          "Convite inválido, expirado ou já usado",
+	"Family is full":                          "Esta família já tem quatro pessoas",
+	"Already a member":                        "Você já faz parte desta família",
+	"Family limit reached":                    "Você já participa de cinco famílias",
+	"Owner required":                          "Só quem criou a família pode gerar convites",
+	"Expense already recorded":                "O custo deste registro já foi lançado",
+	"Invalid purchase":                        "Confira a quantidade e o valor da aquisição",
+	"Invalid occurrence":                      "Data fora da programação deste lançamento",
+	"End date cannot remove paid occurrences": "A data final não pode excluir ocorrências já pagas",
+	"Close this schedule and create a new entry to preserve paid history": "Há pagamentos registrados. Encerre este lançamento e crie outro para mudar valor, tipo ou início",
+}
+
 func New(c Config) http.Handler {
 	client := c.Client
 	if client == nil {
@@ -328,6 +342,12 @@ func (s *Server) forward(w http.ResponseWriter, r *http.Request, path string, bo
 		}
 		if status == 503 {
 			msg = "Serviço temporariamente indisponível"
+		}
+		var upstream struct{ Code, Message string }
+		if status == 400 && json.NewDecoder(io.LimitReader(res.Body, 65536)).Decode(&upstream) == nil && upstream.Code == "P0001" {
+			if known, ok := dbErrors[upstream.Message]; ok {
+				msg = known
+			}
 		}
 		fail(w, status, msg)
 		return
