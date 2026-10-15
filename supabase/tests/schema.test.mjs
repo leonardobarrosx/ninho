@@ -8,7 +8,7 @@ const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(`
  create role anon; create role authenticated;
  create schema auth;
- create table auth.users(id uuid primary key);
+ create table auth.users(id uuid primary key,email text);
  create function auth.uid() returns uuid language sql stable as
  $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
  grant usage on schema public,auth to authenticated,anon;
@@ -22,7 +22,7 @@ const migrations=new URL('../migrations/',import.meta.url);
 for(const file of (await fs.readdir(migrations)).filter(f=>f.endsWith('.sql')).sort()) await db.exec(await fs.readFile(new URL(file,migrations),'utf8'));
 const a='11111111-1111-4111-8111-111111111111', b='22222222-2222-4222-8222-222222222222';
 const c='33333333-3333-4333-8333-333333333333', d='44444444-4444-4444-8444-444444444444';
-await db.query('insert into auth.users values ($1),($2),($3),($4)',[a,b,c,d]);
+await db.query("insert into auth.users values ($1,'a@ninho.test'),($2,'b@ninho.test'),($3,'c@ninho.test'),($4,'d@ninho.test')",[a,b,c,d]);
 async function user(id){await db.exec('reset role; set role authenticated');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);}
 async function q(sql,args=[]){return (await db.query(sql,args)).rows;}
 async function denied(sql,args=[],why){await assert.rejects(()=>db.query(sql,args),why);}
@@ -88,6 +88,24 @@ await denied('select public.accept_invite($1)',[invite],/Family limit reached/);
 await user(d);
 assert.equal((await q('select public.accept_invite($1) as id',[invite]))[0].id,h);
 await denied('truncate public.debts',[],/permission denied/);
+// Family members: listing with e-mail, owner-only removal, leaving.
+await user(b);
+assert.deepEqual((await q('select email,role from public.list_members($1)',[h])).map(m=>m.email+' '+m.role).sort(),['a@ninho.test owner','b@ninho.test parent','d@ninho.test parent']);
+await denied('select public.remove_member($1,$2)',[h,d],/Only the owner/);
+await user(c);
+assert.equal((await q('select * from public.list_members($1)',[h])).length,0);
+await denied('select public.leave_household($1)',[h],/Not a member/);
+await user(a);
+await denied('select public.leave_household($1)',[h],/Owner cannot leave/);
+await denied('select public.remove_member($1,$2)',[h,a],/Owner cannot leave/);
+const pending=(await q('select public.create_invite($1) as token',[h]))[0].token;
+await q('select public.remove_member($1,$2)',[h,d]);
+await user(d);
+assert.equal((await q('select * from public.entries where household_id=$1',[h])).length,0);
+await denied('select public.accept_invite($1)',[pending],/Invalid invite/);
+await user(b);
+await q('select public.leave_household($1)',[h]);
+assert.equal((await q('select * from public.households where id=$1',[h])).length,0);
 await db.exec('reset role');
 const leftovers=await q(`select c.relname as name from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r'
  and (select bool_or(has_table_privilege(r,c.oid,p)) from unnest('{anon,authenticated}'::name[]) r,unnest('{truncate,references,trigger}'::text[]) p)
@@ -98,4 +116,4 @@ assert.equal((await q('select count(*)::int as n from public.health_events where
 const tables=await q("select relname,relrowsecurity from pg_class join pg_namespace on pg_namespace.oid=relnamespace where nspname='public' and relkind='r'");
 assert.ok(tables.length>=10);assert.ok(tables.every(t=>t.relrowsecurity));
 await db.close();
-console.log('PASS: schema, tenant isolation, composite foreign keys, protected fields and columns, invitation lifecycle and limits, recurring settlement boundaries, atomic purchases, health-cost deduplication, unlinking on delete, Supabase default privileges.');
+console.log('PASS: schema, tenant isolation, composite foreign keys, protected fields and columns, invitation lifecycle and limits, recurring settlement boundaries, atomic purchases, health-cost deduplication, unlinking on delete, Supabase default privileges, family members.');
