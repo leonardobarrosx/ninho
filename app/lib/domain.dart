@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 typedef Json = Map<String, dynamic>;
 String money(num cents) =>
     NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$').format(cents / 100);
+String decimal(num value, {int digits = 3}) =>
+    NumberFormat('#,##0.${'#' * digits}', 'pt_BR').format(value);
 String dateText(String? value) => value == null || value.isEmpty
     ? 'Sem data'
     : DateFormat('dd/MM/yyyy').format(DateTime.parse(value));

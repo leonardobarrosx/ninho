@@ -586,7 +586,7 @@ class _HomeScreenState extends State<HomeScreen> {
       row == null ? 'Novo lançamento' : 'Editar lançamento',
       [
         const FieldSpec('title', 'Descrição'),
-        const FieldSpec('category', 'Categoria'),
+        const FieldSpec('category', 'Categoria', max: 60),
         if (!hasPaid) ...[
           const FieldSpec(
             'kind',
@@ -1079,8 +1079,9 @@ class _HomeScreenState extends State<HomeScreen> {
           'target_cents': 0,
           'saved_cents': 0,
           'notes': 'Quantidade sugerida. Ajuste à rotina da família.',
-        });
+        }, reload: false);
       }
+      await s.refresh();
     });
   }
 
@@ -1245,7 +1246,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(dateText(r['measured_at'] as String)),
                     subtitle: Text(
-                      '${r['weight_grams'] == null ? 'Peso não informado' : '${number(r, 'weight_grams') / 1000} kg'} · ${r['length_mm'] == null ? 'Comprimento não informado' : '${number(r, 'length_mm') / 10} cm'}',
+                      '${r['weight_grams'] == null ? 'Peso não informado' : '${decimal(number(r, 'weight_grams') / 1000)} kg'} · ${r['length_mm'] == null ? 'Comprimento não informado' : '${decimal(number(r, 'length_mm') / 10)} cm'}',
                     ),
                     trailing: actions(
                       'measurements',

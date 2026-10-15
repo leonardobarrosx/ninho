@@ -253,14 +253,14 @@ class GrowthChart extends StatelessWidget {
           SectionTitle(
             title,
             caption:
-                '${number(sorted.last, field) / divisor} $unit em ${dateText(sorted.last['measured_at'] as String)}',
+                '${decimal(number(sorted.last, field) / divisor)} $unit em ${dateText(sorted.last['measured_at'] as String)}',
           ),
           SizedBox(
             height: 160,
             width: double.infinity,
             child: Semantics(
               label:
-                  'Evolução de $title: ${sorted.map((r) => '${dateText(r['measured_at'] as String)}: ${number(r, field) / divisor} $unit').join(', ')}',
+                  'Evolução de $title: ${sorted.map((r) => '${dateText(r['measured_at'] as String)}: ${decimal(number(r, field) / divisor)} $unit').join(', ')}',
               child: CustomPaint(painter: LinePainter(sorted, field, divisor)),
             ),
           ),
@@ -315,7 +315,7 @@ class LinePainter extends CustomPainter {
       );
       final label = TextPainter(
         text: TextSpan(
-          text: (max - delta * i / 2).toStringAsFixed(1),
+          text: decimal(max - delta * i / 2, digits: 1),
           style: const TextStyle(fontSize: 11, color: muted),
         ),
         textDirection: TextDirection.ltr,
