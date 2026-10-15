@@ -41,8 +41,8 @@ vercel.json           Publicação web
 
 Requisitos: Flutter **3.35.7**, Go **1.27.2**, Java 17/Android SDK para APK e um projeto Supabase. A versão de Flutter fica fixada no build e na integração contínua. `pubspec.lock` deve acompanhar o código.
 
-1. Aplique `supabase/migrations/202610140001_initial.sql` em um projeto Supabase **novo e dedicado**. O arquivo cria tabelas no schema público e deve ser aplicado uma vez. Com a CLI autenticada: `supabase link --project-ref SEU_REF` e `supabase db push`.
-2. No Supabase Auth, configure a Site URL, URLs permitidas de redirecionamento e SMTP antes de distribuir convites/cadastros. Confirmação de e-mail fica habilitada. Para testes locais use `http://localhost:3000`; para a web use sua URL da Vercel. O fluxo de senha pode ser concluído na web, inclusive para contas usadas no Android.
+1. Aplique as migrações de `supabase/migrations/`, em ordem, em um projeto Supabase **novo e dedicado**. Elas criam tabelas no schema público, e cada uma deve ser aplicada uma vez. Com a CLI autenticada: `supabase link --project-ref SEU_REF` e `supabase db push`.
+2. No Supabase Auth, configure a Site URL, URLs permitidas de redirecionamento e SMTP antes de distribuir convites/cadastros. Confirmação de e-mail fica habilitada. Para testes locais use `http://localhost:3000`; para a web use sua URL da Vercel. A recuperação de senha usa o fluxo PKCE padrão do `supabase_flutter`: o link do e-mail só conclui a troca no mesmo navegador em que ela foi pedida. O Android ainda não abre esses links, então peça a recuperação pela versão web.
 3. Copie `backend/.env.example` para `backend/.env` e preencha URL, chave **publishable/anon** e origens exatas. Não use a chave `service_role` na API ou no app.
 4. Inicie a API:
 
@@ -78,6 +78,8 @@ Antes da distribuição comercial, configure seu application ID definitivo e uma
 ## Segurança e dados
 
 A API valida a sessão no Supabase Auth e encaminha o token do usuário ao Data API. Ela usa somente a chave pública. O banco aplica Row Level Security por família, inclusive se o Data API for chamado diretamente. Chaves elevadas não são necessárias. Os RPCs de compartilhamento e operações atômicas verificam o membro/owner explicitamente. Relacionamentos compostos impedem vincular bebê, medidas e gastos entre famílias.
+
+O Data API continua acessível diretamente com a chave pública e o token do usuário, então a lista de campos da API Go não é a barreira: o banco limita, por coluna, o que o cliente pode inserir e alterar (a mesma lista da API). `household_id` só é definido na criação, e o vínculo da despesa de saúde só é gravado pela RPC. As migrações também retiram privilégios padrão do Supabase que o app não usa: TRUNCATE, REFERENCES e TRIGGER nas tabelas, e EXECUTE das funções para `anon`.
 
 Números monetários são armazenados em centavos inteiros. Registros de pagamento guardam o valor da baixa. Famílias, convites, membros e snapshots de pagamentos não aceitam inserção livre do cliente. Logs da API não registram tokens, nomes, valores ou informações médicas.
 

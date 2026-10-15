@@ -2,7 +2,7 @@
 
 ## Supabase
 
-Use um projeto dedicado. Aplique a migração e execute os testes antes de inserir dados reais. Configure confirmação de e-mail, SMTP, Site URL e as URLs de redirecionamento autorizadas. Crie dois usuários de teste em famílias diferentes para verificar isolamento no ambiente publicado.
+Use um projeto dedicado. Aplique as migrações, em ordem, e execute os testes antes de inserir dados reais. Configure confirmação de e-mail, SMTP, Site URL e as URLs de redirecionamento autorizadas. Crie dois usuários de teste em famílias diferentes para verificar isolamento no ambiente publicado.
 
 As tabelas usadas pelo aplicativo precisam estar expostas no Data API. A migração concede permissões explícitas a `authenticated` e habilita RLS. Não desabilite RLS para resolver erros de permissão.
 
