@@ -5,7 +5,7 @@ Planejamento financeiro e acompanhamento familiar em Flutter, com API Go no Rend
 ## O que está implementado
 
 - Cadastro, confirmação de e-mail, login, recuperação e atualização de senha.
-- Família compartilhada por convite de uso único, com validade de 72 horas. Até quatro membros por família.
+- Família compartilhada por convite de uso único, com validade de 72 horas. Até quatro membros por família. Todos veem quem está na família; quem a criou pode remover pessoas, e os demais podem sair.
 - Receitas, salários, despesas únicas e contas mensais com início e encerramento.
 - Baixa por ocorrência mensal, com valor pago preservado. Vencimentos em dias 29–31 são ajustados ao último dia do mês.
 - Saldo previsto e realizado, despesas por categoria e pendências mensais.
@@ -18,7 +18,7 @@ Planejamento financeiro e acompanhamento familiar em Flutter, com API Go no Rend
 
 ## Limites atuais
 
-Esta é a primeira versão para validação do produto. O frontend ainda precisa passar pela análise, pelos testes de interface e pelos builds; consulte `docs/validation.md`. Ainda não é uma operação comercial completa: cobrança de assinatura, webhooks de pagamento, emissão fiscal, atendimento, auditoria de alterações, revogação de membros pela interface, exportação/exclusão de conta, notificações push e anexos não estão implementados. Não há integração bancária ou sincronização offline. Escolha o provedor de pagamentos antes de implementar planos pagos; o campo de plano não é editável pelo cliente.
+Esta é a primeira versão para validação do produto. O frontend ainda precisa passar pela análise, pelos testes de interface e pelos builds; consulte `docs/validation.md`. Ainda não é uma operação comercial completa: cobrança de assinatura, webhooks de pagamento, emissão fiscal, atendimento, auditoria de alterações, exportação/exclusão de conta, notificações push e anexos não estão implementados. Não há integração bancária ou sincronização offline. Escolha o provedor de pagamentos antes de implementar planos pagos; o campo de plano não é editável pelo cliente.
 
 O saldo da dívida é informado manualmente. As parcelas devem ser cadastradas como despesas em Finanças. O app não infere amortização, juros ou evolução do saldo devedor. A baixa financeira não altera automaticamente o saldo cadastrado da dívida.
 
@@ -83,7 +83,7 @@ O Data API continua acessível diretamente com a chave pública e o token do usu
 
 Números monetários são armazenados em centavos inteiros. Registros de pagamento guardam o valor da baixa. Famílias, convites, membros e snapshots de pagamentos não aceitam inserção livre do cliente. Logs da API não registram tokens, nomes, valores ou informações médicas.
 
-Antes de disponibilizar a terceiros: validar os testes no projeto implantado, revisar configurações de Auth/SMTP, definir política de privacidade e retenção, completar os controles de exportação/exclusão e de remoção de membros, configurar backup e observabilidade. O limite de requisições é em memória por instância; para múltiplas instâncias deve ser compartilhado.
+Antes de disponibilizar a terceiros: validar os testes no projeto implantado, revisar configurações de Auth/SMTP, definir política de privacidade e retenção, completar os controles de exportação/exclusão de conta, configurar backup e observabilidade. O limite de requisições é em memória por instância; para múltiplas instâncias deve ser compartilhado.
 
 ## Validação
 
