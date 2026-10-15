@@ -108,6 +108,19 @@ func TestDatabaseMessages(t *testing.T) {
 		}
 	}
 }
+func TestMemberRpcs(t *testing.T) {
+	for _, tc := range []struct {
+		path, body string
+		status     int
+		calls      int
+	}{{"/v1/rpc/list_members", `{"p_household_id":"` + uid + `"}`, 200, 1}, {"/v1/rpc/remove_member", `{"p_household_id":"` + uid + `","p_user_id":"` + uid + `"}`, 200, 1}, {"/v1/rpc/leave_household", `{"p_household_id":"` + uid + `"}`, 200, 1}, {"/v1/rpc/remove_member", `{"p_household_id":"` + uid + `","role":"owner"}`, 400, 0}} {
+		h, c := setup(t)
+		w := request(h, "POST", tc.path, tc.body, "Bearer valid-user-token", "")
+		if w.Code != tc.status || *c != tc.calls {
+			t.Errorf("%s %s: %d after %d calls", tc.path, tc.body, w.Code, *c)
+		}
+	}
+}
 func TestValidateConfig(t *testing.T) {
 	c := Config{SupabaseURL: "https://project.supabase.co", PublishableKey: "pub", Origins: []string{"https://ninho.example"}}
 	if c.Validate() != nil {
