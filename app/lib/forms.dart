@@ -17,13 +17,13 @@ class FieldSpec {
   });
 }
 
-Future<Row?> editForm(
+Future<Json?> editForm(
   BuildContext context,
   String title,
   List<FieldSpec> fields, {
-  Row initial = const {},
+  Json initial = const {},
   String? help,
-}) => showDialog<Row>(
+}) => showDialog<Json>(
   context: context,
   builder: (_) =>
       EditDialog(title: title, fields: fields, initial: initial, help: help),
@@ -32,7 +32,7 @@ Future<Row?> editForm(
 class EditDialog extends StatefulWidget {
   final String title;
   final List<FieldSpec> fields;
-  final Row initial;
+  final Json initial;
   final String? help;
   const EditDialog({
     super.key,
@@ -48,7 +48,7 @@ class EditDialog extends StatefulWidget {
 class _EditDialogState extends State<EditDialog> {
   final form = GlobalKey<FormState>();
   final Map<String, TextEditingController> controls = {};
-  final Row selected = {};
+  final Json selected = {};
   @override
   void initState() {
     super.initState();

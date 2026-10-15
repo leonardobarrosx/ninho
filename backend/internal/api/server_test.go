@@ -9,7 +9,8 @@ import (
 
 const uid = "d2717c73-3a3a-4a24-9a10-8053a7e5d771"
 
-func setup(t *testing.T) (http.Handler, *int) {
+func setup(t *testing.T) (http.Handler, *int) { return setupUpstream(t, 200, `[]`) }
+func setupUpstream(t *testing.T, status int, body string) (http.Handler, *int) {
 	t.Helper()
 	calls := 0
 	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -26,7 +27,8 @@ func setup(t *testing.T) (http.Handler, *int) {
 			t.Error("user credentials must be forwarded")
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`[]`))
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
 	}))
 	t.Cleanup(up.Close)
 	return New(Config{SupabaseURL: up.URL, PublishableKey: "public-key", Origins: []string{"https://ninho.example"}}), &calls
@@ -91,6 +93,19 @@ func TestCannotMoveRecord(t *testing.T) {
 	w := request(h, "PATCH", "/v1/data/goals/"+uid, `{"household_id":"`+uid+`"}`, "Bearer valid-user-token", "")
 	if w.Code != 400 || *c != 0 {
 		t.Fatal("record move allowed")
+	}
+}
+func TestDatabaseMessages(t *testing.T) {
+	for _, tc := range []struct{ body, want string }{
+		{`{"code":"P0001","message":"Family is full"}`, "Esta família já tem quatro pessoas"},
+		{`{"code":"P0001","message":"Internal detail"}`, "Verifique os campos e o acesso à família"},
+		{`<html>Bad gateway</html>`, "Verifique os campos e o acesso à família"},
+	} {
+		h, _ := setupUpstream(t, 400, tc.body)
+		w := request(h, "POST", "/v1/rpc/accept_invite", `{"p_token":"`+strings.Repeat("a", 64)+`"}`, "Bearer valid-user-token", "")
+		if w.Code != 400 || !strings.Contains(w.Body.String(), tc.want) {
+			t.Errorf("%s: %d %s", tc.body, w.Code, w.Body)
+		}
 	}
 }
 func TestValidateConfig(t *testing.T) {
