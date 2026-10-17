@@ -4,12 +4,21 @@ import 'package:intl/intl.dart';
 import 'data.dart';
 import 'domain.dart';
 import 'forms.dart';
+import 'theme.dart';
 import 'widgets.dart';
 
 class HomeScreen extends StatefulWidget {
   final Store store;
   final Future<void> Function() onLogout;
-  const HomeScreen({super.key, required this.store, required this.onLogout});
+  final NinhoTheme theme;
+  final ValueChanged<NinhoTheme> onTheme;
+  const HomeScreen({
+    super.key,
+    required this.store,
+    required this.onLogout,
+    required this.theme,
+    required this.onTheme,
+  });
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -22,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String search = '';
   String? babyId;
   Store get s => widget.store;
+  Palette get p => Palette.of(context);
   static const labels = [
     'Visão geral',
     'Finanças',
@@ -32,11 +42,11 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
   static const icons = [
     Icons.grid_view_rounded,
-    Icons.account_balance_wallet_outlined,
-    Icons.flag_outlined,
-    Icons.child_care_outlined,
-    Icons.favorite_border,
-    Icons.people_outline,
+    Icons.account_balance_wallet_rounded,
+    Icons.checkroom_rounded,
+    Icons.child_care_rounded,
+    Icons.favorite_rounded,
+    Icons.people_alt_rounded,
   ];
   @override
   void initState() {
@@ -68,8 +78,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(cleanError(e)),
-            backgroundColor: const Color(0xff963f32),
+            content: Text(cleanError(e), style: TextStyle(color: p.background)),
+            backgroundColor: p.danger,
           ),
         );
       }
@@ -173,29 +183,27 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             if (wide)
               Material(
-                color: Colors.white,
-                shape: const Border(
-                  right: BorderSide(color: Color(0xffe4e9e2)),
-                ),
+                color: p.surface,
+                shape: Border(right: BorderSide(color: p.border)),
                 child: SizedBox(
                   width: 210,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(26, 34, 20, 36),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 30, 20, 32),
                         child: Row(
                           children: [
-                            Icon(Icons.spa_outlined, color: green, size: 30),
-                            SizedBox(width: 10),
+                            const NinhoLogo(size: 38),
+                            const SizedBox(width: 10),
                             Flexible(
                               child: Text(
                                 'Ninho',
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 27,
-                                  fontWeight: FontWeight.w700,
-                                  color: ink,
+                                  fontWeight: FontWeight.w800,
+                                  color: p.ink,
                                 ),
                               ),
                             ),
@@ -209,18 +217,16 @@ class _HomeScreenState extends State<HomeScreen> {
                             vertical: 4,
                           ),
                           child: ListTile(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                            shape: const StadiumBorder(),
                             selected: i == page,
-                            selectedTileColor: const Color(0xffe7f0e9),
-                            selectedColor: green,
+                            selectedTileColor: p.brandTint,
+                            selectedColor: p.ink,
                             leading: Icon(icons[i], size: 21),
                             title: Text(
                               labels[i],
                               style: const TextStyle(
                                 fontSize: 14,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                             onTap: () => go(i),
@@ -232,7 +238,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Text(
                           'Um passo de cada vez.\nTudo no seu tempo.',
                           style: TextStyle(
-                            color: muted.withValues(alpha: .85),
+                            color: p.muted,
                             height: 1.6,
                             fontSize: 13,
                           ),
@@ -255,14 +261,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         if (!wide)
                           const Padding(
                             padding: EdgeInsets.only(right: 10),
-                            child: Icon(Icons.spa_outlined, color: green),
+                            child: NinhoLogo(size: 30),
                           ),
                         Expanded(
                           child: Text(
                             s.familyName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: ink,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: p.ink,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -277,6 +283,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                           ),
+                        ThemeButton(
+                          value: widget.theme,
+                          onChanged: widget.onTheme,
+                        ),
                         IconButton(
                           onPressed: s.loading || saving
                               ? null
@@ -297,14 +307,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (s.demo)
                     Container(
                       width: double.infinity,
-                      color: const Color(0xfff4eddc),
+                      color: p.sunnyTint,
                       padding: const EdgeInsets.symmetric(
                         vertical: 8,
                         horizontal: 20,
                       ),
-                      child: const Text(
+                      child: Text(
                         'Dados fictícios. Alterações desta demonstração são temporárias.',
-                        style: TextStyle(fontSize: 12),
+                        style: TextStyle(fontSize: 12, color: p.ink),
                       ),
                     ),
                   if (saving || s.loading)
@@ -366,9 +376,9 @@ class _HomeScreenState extends State<HomeScreen> {
   };
   Widget monthPicker() => Container(
     decoration: BoxDecoration(
-      color: Colors.white,
-      border: Border.all(color: const Color(0xffe4e9e2)),
-      borderRadius: BorderRadius.circular(12),
+      color: p.surface,
+      border: Border.all(color: p.border),
+      borderRadius: BorderRadius.circular(999),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
@@ -427,20 +437,25 @@ class _HomeScreenState extends State<HomeScreen> {
               'Saldo previsto',
               money(m.balance),
               'Receitas menos despesas do mês',
-              Icons.account_balance_wallet_outlined,
-              accent: true,
+              Icons.account_balance_wallet_rounded,
+              color: p.brand,
+              onColor: p.onBrand,
             ),
             Metric(
               'Receitas previstas',
               money(m.sum(true)),
               'Recebido: ${money(m.sum(true, paid: true))}',
-              Icons.south_west,
+              Icons.south_west_rounded,
+              color: p.mintTint,
+              accent: p.mint,
             ),
             Metric(
               'Despesas previstas',
               money(m.sum(false)),
               'Pago: ${money(m.sum(false, paid: true))}',
-              Icons.north_east,
+              Icons.north_east_rounded,
+              color: p.indigoTint,
+              accent: p.indigo,
             ),
             Metric(
               'Falta para o essencial',
@@ -448,7 +463,9 @@ class _HomeScreenState extends State<HomeScreen> {
               unquoted > 0
                   ? '${money(missing)} nas metas já cotadas'
                   : '$ready de ${essential.length} metas concluídas',
-              Icons.child_care_outlined,
+              Icons.child_care_rounded,
+              color: p.sunnyTint,
+              accent: p.sunny,
             ),
           ],
         ),
@@ -464,11 +481,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     caption: 'Pendências do mês selecionado',
                   ),
                   if (upcoming.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
                       child: Text(
                         'Nenhuma despesa pendente neste mês.',
-                        style: TextStyle(color: muted),
+                        style: TextStyle(color: p.muted),
                       ),
                     ),
                   for (final e in upcoming.take(5)) entryTile(e, compact: true),
@@ -497,9 +514,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
+                  Text(
                     'Resultado do mês, sem incluir saldo bancário anterior.',
-                    style: TextStyle(color: muted, fontSize: 12),
+                    style: TextStyle(color: p.muted, fontSize: 12),
                   ),
                 ],
               ),
@@ -547,17 +564,26 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       children: [
         if (sorted.isEmpty)
-          const Text(
+          Text(
             'Cadastre despesas para visualizar a distribuição.',
-            style: TextStyle(color: muted),
+            style: TextStyle(color: p.muted),
           ),
-        for (final e in sorted)
+        for (final (i, e) in sorted.indexed)
           Padding(
             padding: const EdgeInsets.only(bottom: 17),
             child: Column(
               children: [
                 Row(
                   children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: p.accents[i % p.accents.length],
+                        shape: BoxShape.circle,
+                      ),
+                    ),
                     Expanded(
                       child: Text(e.key, style: const TextStyle(fontSize: 13)),
                     ),
@@ -573,10 +599,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 8),
                 LinearProgressIndicator(
                   value: m.sum(false) == 0 ? 0 : e.value / m.sum(false),
-                  minHeight: 6,
-                  borderRadius: BorderRadius.circular(8),
-                  backgroundColor: const Color(0xffedf1eb),
-                  color: green,
+                  minHeight: 8,
+                  borderRadius: BorderRadius.circular(99),
+                  backgroundColor: p.surfaceAlt,
+                  color: p.accents[i % p.accents.length],
                 ),
               ],
             ),
@@ -703,9 +729,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        const Text(
+        Text(
           'O saldo da dívida é acompanhado separadamente. Cadastre as parcelas em Finanças para incluí-las na previsão mensal e atualize o saldo devedor após os pagamentos.',
-          style: TextStyle(color: muted, fontSize: 13, height: 1.5),
+          style: TextStyle(color: p.muted, fontSize: 13, height: 1.5),
         ),
         const SizedBox(height: 16),
         if (s.rows('debts').isEmpty)
@@ -749,17 +775,15 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(9),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: e.income
-                  ? const Color(0xffeaf3ed)
-                  : const Color(0xfff5eee7),
-              borderRadius: BorderRadius.circular(12),
+              color: e.income ? p.mintTint : p.indigoTint,
+              shape: BoxShape.circle,
             ),
             child: Icon(
-              e.income ? Icons.south_west : Icons.north_east,
+              e.income ? Icons.south_west_rounded : Icons.north_east_rounded,
               size: 19,
-              color: e.income ? green : const Color(0xff92674c),
+              color: e.income ? p.mint : p.indigo,
             ),
           ),
           const SizedBox(width: 12),
@@ -776,7 +800,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   '${DateFormat('dd/MM').format(e.date)} · ${e.entry['category']}${overdue ? ' · Em atraso' : ''}',
                   style: TextStyle(
                     fontSize: 12,
-                    color: overdue ? const Color(0xffa14b3f) : muted,
+                    color: overdue ? p.danger : p.muted,
                   ),
                 ),
               ],
@@ -912,9 +936,9 @@ class _HomeScreenState extends State<HomeScreen> {
         else
           goalGrid(list),
         const SizedBox(height: 16),
-        const Text(
+        Text(
           '“Falta reservar” usa o orçamento proporcional à quantidade que falta, descontando a reserva atual. Atualize preços conforme suas cotações.',
-          style: TextStyle(color: muted, fontSize: 12, height: 1.6),
+          style: TextStyle(color: p.muted, fontSize: 12, height: 1.6),
         ),
       ],
     );
@@ -959,8 +983,14 @@ class _HomeScreenState extends State<HomeScreen> {
               Chip(
                 label: Text(
                   priorityLabels[g['priority']] ?? 'Meta',
-                  style: const TextStyle(fontSize: 11),
+                  style: TextStyle(fontSize: 11, color: p.ink),
                 ),
+                backgroundColor: switch (g['priority']) {
+                  'comfort' => p.skyTint,
+                  'optional' => p.indigoTint,
+                  _ => p.brandTint,
+                },
+                side: BorderSide.none,
                 visualDensity: VisualDensity.compact,
               ),
               const Spacer(),
@@ -970,23 +1000,23 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 12),
           Text(
             g['title'] as String,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: ink,
+              color: p.ink,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             '$acquired de $quantity adquiridos · ${dateText(g['target_date'] as String?)}',
-            style: const TextStyle(fontSize: 12, color: muted),
+            style: TextStyle(fontSize: 12, color: p.muted),
           ),
           const SizedBox(height: 22),
           LinearProgressIndicator(
             value: progress,
-            minHeight: 7,
-            borderRadius: BorderRadius.circular(8),
-            backgroundColor: const Color(0xffedf1eb),
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(99),
+            backgroundColor: p.surfaceAlt,
           ),
           const SizedBox(height: 12),
           Text(
@@ -1000,7 +1030,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 5),
           Text(
             'Reservado ${money(number(g, 'saved_cents'))}',
-            style: const TextStyle(color: muted, fontSize: 12),
+            style: TextStyle(color: p.muted, fontSize: 12),
           ),
           const SizedBox(height: 18),
           if (!done)
@@ -1166,10 +1196,10 @@ class _HomeScreenState extends State<HomeScreen> {
         Panel(
           child: Row(
             children: [
-              const CircleAvatar(
+              CircleAvatar(
                 radius: 28,
-                backgroundColor: Color(0xffe7f0e9),
-                child: Icon(Icons.child_care, color: green, size: 28),
+                backgroundColor: p.skyTint,
+                child: Icon(Icons.child_care_rounded, color: p.sky, size: 28),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1188,7 +1218,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       selected['birth_date'] != null
                           ? 'Nascimento: ${dateText(selected['birth_date'] as String)}'
                           : 'Previsão de chegada: ${dateText(selected['due_date'] as String?)}',
-                      style: const TextStyle(color: muted),
+                      style: TextStyle(color: p.muted),
                     ),
                   ],
                 ),
@@ -1377,11 +1407,23 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Row(
                           children: [
-                            Icon(
-                              e['completed'] == true
-                                  ? Icons.check_circle_outline
-                                  : Icons.favorite_border,
-                              color: green,
+                            Container(
+                              padding: const EdgeInsets.all(9),
+                              decoration: BoxDecoration(
+                                color: e['completed'] == true
+                                    ? p.mintTint
+                                    : p.brandTint,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                e['completed'] == true
+                                    ? Icons.check_rounded
+                                    : Icons.favorite_rounded,
+                                size: 19,
+                                color: e['completed'] == true
+                                    ? p.mint
+                                    : p.brandText,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -1397,8 +1439,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   Text(
                                     '${typeLabels[e['event_type']]} · ${dateText(e['event_date'] as String)}',
-                                    style: const TextStyle(
-                                      color: muted,
+                                    style: TextStyle(
+                                      color: p.muted,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -1413,7 +1455,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             padding: const EdgeInsets.only(top: 10),
                             child: Text(
                               e['notes'] as String,
-                              style: const TextStyle(color: muted),
+                              style: TextStyle(color: p.muted),
                             ),
                           ),
                         Wrap(
@@ -1481,7 +1523,7 @@ class _HomeScreenState extends State<HomeScreen> {
         constraints: const BoxConstraints(maxWidth: 550),
         child: Column(
           children: [
-            const Icon(Icons.spa_outlined, size: 54, color: green),
+            const NinhoLogo(size: 88),
             const SizedBox(height: 20),
             const Heading(
               'Um lugar para os planos de vocês.',
@@ -1574,9 +1616,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Convites são gerados pelo criador da família. Quem entrar poderá ver e editar finanças e registros de saúde. Gere somente para pessoas que devem compartilhar esses dados. Quem criou a família pode remover pessoas a qualquer momento.',
-              style: TextStyle(color: muted, height: 1.6, fontSize: 13),
+              style: TextStyle(color: p.muted, height: 1.6, fontSize: 13),
             ),
           ],
         ),
@@ -1588,9 +1630,9 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             const SectionTitle('Pessoas nesta família'),
             if (s.members.isEmpty)
-              const Text(
+              Text(
                 'As pessoas aparecem aqui quando entram com um convite.',
-                style: TextStyle(color: muted),
+                style: TextStyle(color: p.muted),
               ),
             for (final m in s.members)
               ListTile(
@@ -1618,14 +1660,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       const SizedBox(height: 20),
-      const Panel(
+      Panel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SectionTitle('Sobre esta versão'),
+            const SectionTitle('Sobre esta versão'),
             Text(
               'Ninho 0.1 · Planejamento familiar\n\nRecursos de cobrança de assinatura não estão ativos nesta versão. O compartilhamento funciona por família.\n\nEm Saúde, registre informações recebidas dos profissionais. O aplicativo não substitui o acompanhamento clínico.',
-              style: TextStyle(color: muted, height: 1.6),
+              style: TextStyle(color: p.muted, height: 1.6),
             ),
           ],
         ),
