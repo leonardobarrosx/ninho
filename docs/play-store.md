@@ -156,8 +156,14 @@ App governamental, de notícias ou de COVID-19: **Não**.
 
 - Nome: Ninho. Categoria sugerida: Criação dos filhos (Parenting).
 - Descrição curta e completa em português, citando que o app tem anúncios e o aviso de que não é um dispositivo médico.
-- Ícone de 512 × 512 (`branding/play-icon-512.png`), imagem de destaque de 1024 × 500 e de 2 a 8 capturas de tela de celular. A imagem de destaque ainda precisa ser feita; os vetores horizontais de `branding/` servem de base.
+- Ícone de 512 × 512 (`branding/play-icon-512.png`), imagem de destaque de 1024 × 500 (`branding/feature-graphic.png`) e de 2 a 8 capturas de tela de celular.
 - E-mail de contato, site (o domínio da Vercel, por causa do `app-ads.txt`) e a URL da política de privacidade.
+
+A imagem de destaque é um PNG de 24 bits, sem transparência, exportado de `branding/feature-graphic.svg`. Ela traz a logo horizontal e a frase da tela de entrada sobre o laranja. A composição e o comando de exportação estão no `branding/LEIA-ME.md`. Ao enviá-la:
+
+- **Texto alternativo:** "Logo do Ninho sobre fundo laranja com a frase: Mais clareza nas contas. Mais espaço para viver essa fase." São 105 caracteres; a Play recomenda até 140.
+- **Idioma:** a frase está em português. Uma ficha em outro idioma precisa de uma versão traduzida da imagem.
+- **Vídeo:** se a ficha ganhar um vídeo de apresentação, a imagem vira a capa dele, com um botão de play por cima. Confira se o botão não cobre a frase.
 
 ## 7. Lançamento
 
@@ -171,5 +177,6 @@ App governamental, de notícias ou de COVID-19: **Não**.
 - O AAB nunca foi gerado, e o app nunca rodou em aparelho ou emulador Android: esta máquina não tem Android SDK nem Java.
 - O comportamento real do AdMob e do UMP (mensagem de consentimento, anúncio de teste, botão de privacidade) só foi exercitado com um substituto nos testes.
 - O ícone adaptativo nunca foi compilado nem visto num launcher. Os recursos foram conferidos como XML e numa prévia equivalente em SVG, com máscaras redonda e arredondada e no modo temático.
+- A imagem de destaque só foi conferida como arquivo, em tamanho real e reduzida a 512 e a 360 px de largura. Ela nunca foi vista na Play, onde alguns formatos cortam as bordas ou põem elementos por cima.
 - A criação do gatilho em `auth.users` no Supabase hospedado não foi testada; o teste local usa PGlite. Depois de aplicar a migração, confira em Database › Triggers.
 - A exclusão pelo endpoint real do Auth admin, os deploys no Render e na Vercel e as respostas dos formulários da Play dependem das contas.
