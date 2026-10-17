@@ -3,7 +3,7 @@
     <application
         android:label="Ninho"
         android:name="${applicationName}"
-        android:icon="@drawable/ic_ninho"
+        android:icon="@mipmap/ic_launcher"
         android:allowBackup="false">
         <activity
             android:name=".MainActivity"
