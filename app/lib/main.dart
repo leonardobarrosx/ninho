@@ -7,8 +7,9 @@ import 'screens.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (configured)
+  if (configured) {
     await Supabase.initialize(url: supabaseUrl, anonKey: supabaseKey);
+  }
   runApp(const NinhoApp());
 }
 
@@ -158,8 +159,9 @@ class _AuthScreenState extends State<AuthScreen> {
         setState(() => message = 'Informe seu e-mail.');
         return;
       }
-    } else if (!key.currentState!.validate())
+    } else if (!key.currentState!.validate()) {
       return;
+    }
     setState(() {
       busy = true;
       message = null;
@@ -168,18 +170,20 @@ class _AuthScreenState extends State<AuthScreen> {
       final auth = Supabase.instance.client.auth;
       if (reset) {
         await auth.resetPasswordForEmail(email.text.trim());
-        if (mounted)
+        if (mounted) {
           setState(
             () => message =
                 'Se houver uma conta, você receberá um e-mail para redefinir a senha.',
           );
+        }
       } else if (signup) {
         await auth.signUp(email: email.text.trim(), password: password.text);
-        if (mounted)
+        if (mounted) {
           setState(
             () => message =
                 'Confira seu e-mail para confirmar o cadastro. Depois, entre com sua senha.',
           );
+        }
       } else {
         await auth.signInWithPassword(
           email: email.text.trim(),
@@ -187,12 +191,13 @@ class _AuthScreenState extends State<AuthScreen> {
         );
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(
           () => message = e is AuthException
               ? e.message
               : 'Não foi possível conectar. Tente novamente.',
         );
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
