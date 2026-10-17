@@ -27,7 +27,7 @@ O Ninho vai para a Play como app gratuito, com um anúncio do AdMob na abertura.
 - **Versão:** `version:` em `app/pubspec.yaml` (hoje `0.1.0+1`). O número depois do `+` é o `versionCode`, e cada envio precisa de um maior.
 - **SDKs:** `minSdk` 24 (do Flutter e do `google_mobile_ads`), `compileSdk` 36 e `targetSdk` 36, fixado em `build.gradle.kts` para não mudar sem querer numa atualização do Flutter.
 - **Permissões:** só `INTERNET` e `AD_ID`, esta última adicionada pelo SDK de anúncios.
-- **Ícone:** a loja pede um PNG de 512 × 512. A logo do app está em revisão; quando ela for escolhida, gere esse ícone e o ícone adaptativo a partir dela.
+- **Ícone:** `branding/play-icon-512.png` (512 × 512, PNG de 32 bits), com a logo Abraço sobre o laranja. Ele é quadrado e sem cantos arredondados, porque a Play aplica a máscara. No aparelho, o ícone é adaptativo: tem fundo laranja, o símbolo creme e uma camada monocromática para os ícones temáticos do Android 13+. O Android 7 recebe PNGs redondos.
 
 ## 3. Assinatura e build
 
@@ -156,7 +156,7 @@ App governamental, de notícias ou de COVID-19: **Não**.
 
 - Nome: Ninho. Categoria sugerida: Criação dos filhos (Parenting).
 - Descrição curta e completa em português, citando que o app tem anúncios e o aviso de que não é um dispositivo médico.
-- Ícone de 512 × 512, imagem de destaque de 1024 × 500 e de 2 a 8 capturas de tela de celular.
+- Ícone de 512 × 512 (`branding/play-icon-512.png`), imagem de destaque de 1024 × 500 e de 2 a 8 capturas de tela de celular. A imagem de destaque ainda precisa ser feita; os vetores horizontais de `branding/` servem de base.
 - E-mail de contato, site (o domínio da Vercel, por causa do `app-ads.txt`) e a URL da política de privacidade.
 
 ## 7. Lançamento
@@ -170,5 +170,6 @@ App governamental, de notícias ou de COVID-19: **Não**.
 
 - O AAB nunca foi gerado, e o app nunca rodou em aparelho ou emulador Android: esta máquina não tem Android SDK nem Java.
 - O comportamento real do AdMob e do UMP (mensagem de consentimento, anúncio de teste, botão de privacidade) só foi exercitado com um substituto nos testes.
+- O ícone adaptativo nunca foi compilado nem visto num launcher. Os recursos foram conferidos como XML e numa prévia equivalente em SVG, com máscaras redonda e arredondada e no modo temático.
 - A criação do gatilho em `auth.users` no Supabase hospedado não foi testada; o teste local usa PGlite. Depois de aplicar a migração, confira em Database › Triggers.
 - A exclusão pelo endpoint real do Auth admin, os deploys no Render e na Vercel e as respostas dos formulários da Play dependem das contas.

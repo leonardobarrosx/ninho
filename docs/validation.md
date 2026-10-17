@@ -12,6 +12,12 @@
     - 16 do anúncio de abertura, com um substituto dos SDKs do Google: consentimento a cada abertura, instalação nova sem anúncio, limite de 4 horas, anúncio personalizado só com resposta atualizada na mensagem do Google, só não personalizado onde não há mensagem (como no Brasil), mensagem de consentimento no lugar do anúncio, falha e atraso do anúncio, consulta de consentimento sem resposta, recuperação de senha, opções de privacidade (inclusive quando o Google não responde) e erro do SDK. Três regras quebradas de propósito (ignorar a recuperação de senha, ignorar o prazo e personalizar sem consentimento atualizado) fizeram os testes correspondentes falharem.
     - 7 de conta e abertura: a capa segura o app até o fim do fluxo do anúncio; a demonstração não exclui conta; a exclusão só é confirmada com a senha, num campo oculto, e a senha chega ao `Store`, nos temas claro e escuro; cancelar mantém a conta; uma senha errada mostra o motivo.
   - `flutter build web --release` gera o build de demonstração com `privacidade.html`, `excluir-conta.html` e `pages.css`.
+- Logo Abraço (proposta A), aplicada no app, na web e no Android:
+  - Os testes de interface desenham a `NinhoLogo` nova.
+  - Uma renderização do Flutter em 128, 96, 64, 38 e 30 px foi conferida nos fundos claro e escuro.
+  - Prévias no Edge conferidas: o favicon de 16 a 64 px, e o ícone adaptativo com máscara redonda e arredondada, no modo temático claro e escuro e como PNG redondo do Android 7.
+  - O ícone da Play tem 512 × 512 e é opaco.
+  - O build web inclui `favicon.svg`, `favicon.ico` e os ícones de instalação.
 - `scripts/build_web.sh`, rodado numa cópia com um `flutter` falso, para não alterar a configuração global:
   - Falha sem `PRIVACY_EMAIL` fora do modo demo e com um `ADMOB_PUBLISHER_ID` malformado.
   - Preenche o responsável e o contato com escape de HTML (testado com `&`, `<`, `>`, aspas, `|` e `\`) e publica o `app-ads.txt`.
@@ -34,7 +40,7 @@
 
 ## Pendente
 
-- Build do AAB e teste em dispositivo Android. A máquina não tem Android SDK nem Java. Os arquivos Gradle seguem os templates do Flutter 3.47.7 (Gradle 9.3.1, AGP 9.1.0, Kotlin 2.4.0), mas nunca foram compilados aqui.
+- Build do AAB e teste em dispositivo Android. A máquina não tem Android SDK nem Java. Os arquivos Gradle seguem os templates do Flutter 3.47.7 (Gradle 9.3.1, AGP 9.1.0, Kotlin 2.4.0), mas nunca foram compilados aqui. Os recursos do ícone adaptativo também nunca passaram pelo aapt2 nem apareceram num launcher.
 - O AdMob e o UMP reais (mensagem de consentimento, anúncio de teste, botão de privacidade dos anúncios) só rodaram com o substituto dos testes.
 - CI: o GitHub Actions não inicia em repositórios privados desta conta. Todos os runs terminam em `startup_failure` sem nenhum job, inclusive os do Dependabot, enquanto os repositórios públicos rodam. Verifique a cobrança e o limite de gastos do Actions na conta do GitHub.
 - Uso com backend real: o app só foi exercitado na demonstração, sem API nem Supabase.

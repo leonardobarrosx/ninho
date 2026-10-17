@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="370" height="132" viewBox="0 0 370 132" role="img"><title>Ninho</title><g transform="translate(8 20)"><g fill="none" stroke="#3A3248" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 90V49C16 13 65 13 65 49V90"/>
+    <path d="M98 90V34"/>
+    <path d="M132 90V49C132 13 181 13 181 49V90"/>
+    <path d="M215 90V3M215 49C215 13 264 13 264 49V90"/>
+    <ellipse cx="315" cy="60" rx="26" ry="31"/>
+    </g><circle cx="98" cy="5" r="11" fill="#3A3248"/></g></svg>

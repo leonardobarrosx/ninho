@@ -287,8 +287,9 @@ class ThemeButton extends StatelessWidget {
   );
 }
 
-/// The Ninho mark: a smiling egg in an orange nest, drawn in code so it stays
-/// sharp at any size and needs no image assets.
+/// The Ninho mark, proposal A ("Abraço"): a nest that embraces the egg, in
+/// cream on an orange disc. It is drawn in code from the designer's vectors in
+/// branding/, so it stays sharp at any size and needs no image assets.
 class NinhoLogo extends StatelessWidget {
   final double size;
   const NinhoLogo({super.key, this.size = 40});
@@ -304,62 +305,55 @@ class NinhoLogo extends StatelessWidget {
 
 class _LogoPainter extends CustomPainter {
   const _LogoPainter();
+
+  // The egg and the two arms of the nest, copied from
+  // branding/ninho-A-simbolo-color.svg (a 256 × 256 box).
+  static final _mark = [
+    'M128 27C101 27 79 71 79 105C79 134 99 149 128 149C157 149 177 134 177 105C177 71 155 27 128 27Z',
+    'M68 76C34 89 17 113 17 145C17 192 58 222 117 224C138 225 155 223 174 218C171 190 151 177 116 166C83 156 59 144 48 123C45 117 50 113 54 119C60 128 65 133 73 137C64 120 61 98 68 76Z',
+    'M187 76C220 90 239 113 239 145C239 174 219 201 184 215C181 190 167 174 146 163C171 155 189 135 190 111C191 98 189 87 187 76Z',
+  ].fold(Path(), (all, data) => all..addPath(_svgPath(data), Offset.zero));
+
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.scale(size.width / 100);
-    const navy = Color(0xff3a3248);
-    final fill = Paint();
+    canvas.scale(size.width / 256);
     canvas.drawCircle(
-      const Offset(50, 50),
-      50,
-      fill..color = Palette.light.brand,
+      const Offset(128, 128),
+      128,
+      Paint()..color = Palette.light.brand,
     );
-    canvas.drawOval(
-      Rect.fromCenter(center: const Offset(50, 44), width: 42, height: 52),
-      fill..color = const Color(0xfffff6ea),
-    );
-    for (final x in [37.0, 63.0]) {
-      canvas.drawOval(
-        Rect.fromCenter(center: Offset(x, 47), width: 8, height: 5),
-        fill..color = const Color(0xffffb3a1),
-      );
-    }
-    for (final x in [43.0, 57.0]) {
-      canvas.drawCircle(Offset(x, 40), 2.8, fill..color = navy);
-    }
-    final line = Paint()
-      ..color = navy
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.6
-      ..strokeCap = StrokeCap.round;
-    canvas.drawPath(
-      Path()
-        ..moveTo(45, 46)
-        ..quadraticBezierTo(50, 51, 55, 46),
-      line,
-    );
-    canvas.drawPath(
-      Path()
-        ..moveTo(15, 55)
-        ..quadraticBezierTo(50, 67, 85, 55)
-        ..quadraticBezierTo(81, 85, 50, 85)
-        ..quadraticBezierTo(19, 85, 15, 55)
-        ..close(),
-      fill..color = navy,
-    );
-    line
-      ..color = const Color(0xff5e5470)
-      ..strokeWidth = 3;
-    canvas.drawPath(
-      Path()
-        ..moveTo(25, 66)
-        ..quadraticBezierTo(50, 75, 75, 66)
-        ..moveTo(32, 76)
-        ..quadraticBezierTo(50, 82, 68, 76),
-      line,
-    );
+    // The same placement as the app icon (branding/app-icon.svg).
+    canvas.translate(26, 26);
+    canvas.scale(.8);
+    canvas.drawPath(_mark, Paint()..color = const Color(0xfffff6ea));
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Reads the absolute moveto, curveto and closepath commands of the logo paths.
+Path _svgPath(String data) {
+  final path = Path();
+  final tokens = RegExp(
+    r'[A-Za-z]|-?\d+(?:\.\d+)?',
+  ).allMatches(data).map((m) => m[0]!).toList();
+  var i = 0;
+  double next() => double.parse(tokens[i++]);
+  var command = 'M';
+  while (i < tokens.length) {
+    if (RegExp('[A-Za-z]').hasMatch(tokens[i])) command = tokens[i++];
+    switch (command) {
+      case 'M':
+        path.moveTo(next(), next());
+      case 'C':
+        path.cubicTo(next(), next(), next(), next(), next(), next());
+      case 'Z':
+        path.close();
+        command = ''; // closepath takes no numbers
+      default:
+        throw FormatException('Unsupported path command', command);
+    }
+  }
+  return path;
 }

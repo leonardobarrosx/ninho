@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="380" viewBox="0 0 360 380" role="img"><title>Ninho</title><g transform="translate(52 8)"><path fill="#FFF6EA" d="M128 27C101 27 79 71 79 105C79 134 99 149 128 149C157 149 177 134 177 105C177 71 155 27 128 27Z"/>
+        <path fill="#FF8A5C" d="M68 76C34 89 17 113 17 145C17 192 58 222 117 224C138 225 155 223 174 218C171 190 151 177 116 166C83 156 59 144 48 123C45 117 50 113 54 119C60 128 65 133 73 137C64 120 61 98 68 76Z"/>
+        <path fill="#FF8A5C" d="M187 76C220 90 239 113 239 145C239 174 219 201 184 215C181 190 167 174 146 163C171 155 189 135 190 111C191 98 189 87 187 76Z"/></g><g transform="translate(34 280) scale(.85)"><g fill="none" stroke="#3A3248" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 90V49C16 13 65 13 65 49V90"/>
+    <path d="M98 90V34"/>
+    <path d="M132 90V49C132 13 181 13 181 49V90"/>
+    <path d="M215 90V3M215 49C215 13 264 13 264 49V90"/>
+    <ellipse cx="315" cy="60" rx="26" ry="31"/>
+    </g><circle cx="98" cy="5" r="11" fill="#3A3248"/></g></svg>
