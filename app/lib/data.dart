@@ -8,8 +8,19 @@ import 'domain.dart';
 const apiUrl = String.fromEnvironment('API_URL');
 const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 const supabaseKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+const siteUrl = String.fromEnvironment('SITE_URL');
 bool get configured =>
     apiUrl.isNotEmpty && supabaseUrl.isNotEmpty && supabaseKey.isNotEmpty;
+
+/// A page of the site, such as the privacy policy. The web app links to its
+/// own origin; Android needs SITE_URL and gets null without it.
+Uri? sitePage(String page) {
+  if (kIsWeb) return Uri.base.resolve('/$page');
+  if (siteUrl.isEmpty) return null;
+  return Uri.parse('${siteUrl.replaceAll(RegExp(r'/$'), '')}/$page');
+}
+
+final privacyPolicy = sitePage('privacidade.html');
 const resources = [
   'babies',
   'entries',
@@ -45,6 +56,20 @@ class Store extends ChangeNotifier {
     final me = demo ? null : Supabase.instance.client.auth.currentUser?.id;
     final family = households.where((h) => h['id'] == householdId);
     return me != null && family.any((h) => h['owner_id'] == me);
+  }
+
+  /// E-mail of the signed-in account. The demonstration has none.
+  String? get email =>
+      demo ? null : Supabase.instance.client.auth.currentUser?.email;
+  bool get canDeleteAccount => !demo;
+
+  /// Deletes the account on the server and ends the session here. Families
+  /// shared with other people stay with them; the others go with their data.
+  Future<void> deleteAccount() async {
+    if (demo) throw Exception('A demonstração não tem conta para excluir.');
+    await request('DELETE', 'account');
+    // The account no longer exists, so only the local session is cleared.
+    await Supabase.instance.client.auth.signOut(scope: SignOutScope.local);
   }
 
   Future<dynamic> request(String method, String path, [Json? body]) async {
