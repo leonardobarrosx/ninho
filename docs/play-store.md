@@ -12,7 +12,7 @@ O Ninho vai para a Play como app gratuito, com um anúncio do AdMob na abertura.
 | Anúncio de abertura (App Open Ad) com consentimento do Google (UMP) | No código, com IDs de teste; nunca rodou em aparelho |
 | Exclusão de conta no app e por link web | No código e nos testes; o endpoint precisa de `SUPABASE_SECRET_KEY` no Render |
 | Política de privacidade na web | `/privacidade`, publicada com o build da Vercel |
-| Application ID definitivo | **Confirmar** (hoje `br.com.ninho.ninho`) |
+| Application ID definitivo | `br.com.ninho.app`, confirmado em 17/10/2026 |
 | Contas Play, AdMob, Supabase, Render e Vercel | A criar ou configurar |
 
 ## 1. Antes de começar
@@ -23,7 +23,7 @@ O Ninho vai para a Play como app gratuito, com um anúncio do AdMob na abertura.
 
 ## 2. Identidade do app
 
-- **Application ID:** `br.com.ninho.ninho`, em `app/android/app/build.gradle.kts`. Ele identifica o app na Play e **não pode mudar depois do primeiro envio**. Confirme antes. O `supabase/config.toml` cita `br.com.ninho.app://login-callback/` como redirecionamento; hoje o Android não abre esse link, mas convém alinhar os dois nomes.
+- **Application ID:** `br.com.ninho.app`, em `app/android/app/build.gradle.kts`, o mesmo nome do redirecionamento `br.com.ninho.app://login-callback/` do `supabase/config.toml`. O namespace e o pacote da `MainActivity` seguem o mesmo nome. Ele identifica o app na Play e **não pode mudar depois do primeiro envio**.
 - **Versão:** `version:` em `app/pubspec.yaml` (hoje `0.1.0+1`). O número depois do `+` é o `versionCode`, e cada envio precisa de um maior.
 - **SDKs:** `minSdk` 24 (do Flutter e do `google_mobile_ads`), `compileSdk` 36 e `targetSdk` 36, fixado em `build.gradle.kts` para não mudar sem querer numa atualização do Flutter.
 - **Permissões:** só `INTERNET` e `AD_ID`, esta última adicionada pelo SDK de anúncios.
