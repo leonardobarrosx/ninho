@@ -23,6 +23,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Cada fase, registrada.'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Enxoval').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Planos que ganham forma.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Saúde').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Cuidado também é organização.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Família').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Pessoas nesta família'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
   testWidgets('desktop dashboard shows navigation rail', (tester) async {
     tester.view.physicalSize = const Size(1440, 1000);
