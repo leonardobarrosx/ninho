@@ -47,7 +47,7 @@ O Ninho vai para a Play como app gratuito, com um anúncio do AdMob na abertura.
    ```
 
 3. Ative o **Play App Signing** no primeiro envio. O Google guarda a chave que assina o app instalado; a sua chave serve só para enviar versões.
-4. Preencha `app/config.local.json` (ignorado pelo Git) a partir de `app/config.example.json`: `API_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SITE_URL` (o endereço da Vercel, para os links da política e da exclusão de conta), `ADMOB_APP_ID` e `ADMOB_APP_OPEN_ID`.
+4. Preencha `app/config.local.json` (ignorado pelo Git) a partir de `app/config.example.json`: `API_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SITE_URL` (o endereço `https://` da Vercel, para os links da política e da exclusão de conta; o build de release falha sem ele), `ADMOB_APP_ID` e `ADMOB_APP_OPEN_ID`.
 5. Gere o pacote:
 
    ```bash
@@ -76,7 +76,7 @@ Como o anúncio aparece (`app/lib/ads.dart`):
 - no máximo uma vez a cada 4 horas, e a primeira só 4 horas depois da primeira abertura do app;
 - a abertura espera no máximo 4 segundos, atrás de uma capa com a logo, pela consulta de consentimento e pelo anúncio. Se ele falhar ou atrasar, o app abre e o anúncio atrasado é descartado;
 - nunca durante a recuperação de senha, nem com o app em segundo plano;
-- o consentimento vem antes de qualquer anúncio. Quando a mensagem do Google aparece, nenhum anúncio é mostrado naquela abertura. Sem uma resposta atualizada do Google, só anúncios não personalizados são pedidos;
+- o consentimento vem antes de qualquer anúncio. Quando a mensagem do Google aparece, nenhum anúncio é mostrado naquela abertura. Anúncios personalizados só depois de uma resposta na mensagem do Google; onde não há mensagem, como no Brasil, e sem uma resposta atualizada, só anúncios não personalizados são pedidos;
 - a classificação máxima é PG, sem conteúdo adulto;
 - o botão **Privacidade dos anúncios** (Família › Sua conta) aparece quando o Google exige que a escolha possa ser revista.
 

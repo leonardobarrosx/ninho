@@ -37,6 +37,11 @@ require(adMobAppId.isEmpty() == adMobUnitId.isEmpty()) {
 if (wantsRelease && adMobAppId.isEmpty()) {
     logger.warn("Release build without ADMOB_APP_ID and ADMOB_APP_OPEN_ID: it will not show ads.")
 }
+// Google Play wants the privacy policy reachable inside the app, and on Android its link is built
+// from SITE_URL: without it the link would silently disappear.
+require(!wantsRelease || dartDefines["SITE_URL"].orEmpty().startsWith("https://")) {
+    "Release builds need SITE_URL (https://...) so the app links to the privacy policy."
+}
 
 android {
     namespace = "br.com.ninho.app"
