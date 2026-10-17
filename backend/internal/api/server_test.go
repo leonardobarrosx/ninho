@@ -23,6 +23,7 @@ func setupUpstream(t *testing.T, status int, body string) (http.Handler, *int) {
 			return
 		}
 		calls++
+		// The secret key is configured below, so this also proves it never reaches data calls.
 		if r.Header.Get("Authorization") != "Bearer valid-user-token" || r.Header.Get("apikey") != "public-key" {
 			t.Error("user credentials must be forwarded")
 		}
@@ -31,7 +32,33 @@ func setupUpstream(t *testing.T, status int, body string) (http.Handler, *int) {
 		_, _ = w.Write([]byte(body))
 	}))
 	t.Cleanup(up.Close)
-	return New(Config{SupabaseURL: up.URL, PublishableKey: "public-key", Origins: []string{"https://ninho.example"}}), &calls
+	return New(Config{SupabaseURL: up.URL, PublishableKey: "public-key", SecretKey: "secret-key", Origins: []string{"https://ninho.example"}}), &calls
+}
+
+// setupAccount stands in for Supabase Auth: it checks the user's token and records admin deletions.
+func setupAccount(t *testing.T, adminStatus int, secret string) (http.Handler, *[]string) {
+	t.Helper()
+	var deleted []string
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/auth/v1/user":
+			if r.Header.Get("Authorization") != "Bearer valid-user-token" {
+				w.WriteHeader(401)
+				return
+			}
+			_, _ = w.Write([]byte(`{"id":"` + uid + `"}`))
+		case strings.HasPrefix(r.URL.Path, "/auth/v1/admin/users/"):
+			if r.Method != http.MethodDelete || r.Header.Get("apikey") != "secret-key" || r.Header.Get("Authorization") != "Bearer secret-key" {
+				t.Error("the admin call must carry the secret key and never the user token")
+			}
+			deleted = append(deleted, strings.TrimPrefix(r.URL.Path, "/auth/v1/admin/users/"))
+			w.WriteHeader(adminStatus)
+		default:
+			t.Errorf("unexpected upstream call: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	t.Cleanup(up.Close)
+	return New(Config{SupabaseURL: up.URL, PublishableKey: "public-key", SecretKey: secret, Origins: []string{"https://ninho.example"}}), &deleted
 }
 func request(h http.Handler, method, path, body, token, origin string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest(method, path, strings.NewReader(body))
@@ -121,10 +148,50 @@ func TestMemberRpcs(t *testing.T) {
 		}
 	}
 }
+func TestDeleteAccount(t *testing.T) {
+	h, deleted := setupAccount(t, 200, "secret-key")
+	w := request(h, "DELETE", "/v1/account", "", "Bearer valid-user-token", "https://ninho.example")
+	if w.Code != 204 || len(*deleted) != 1 || (*deleted)[0] != uid {
+		t.Fatalf("delete: %d, admin calls %v", w.Code, *deleted)
+	}
+}
+func TestDeleteAccountBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		name, method, token, secret string
+		admin, status, calls        int
+	}{
+		{"unauthenticated", "DELETE", "", "secret-key", 200, 401, 0},
+		{"forged token", "DELETE", "Bearer forged-token-long", "secret-key", 200, 401, 0},
+		{"wrong method", "POST", "Bearer valid-user-token", "secret-key", 200, 405, 0},
+		{"no secret key", "DELETE", "Bearer valid-user-token", "", 200, 503, 0},
+		{"already deleted", "DELETE", "Bearer valid-user-token", "secret-key", 404, 204, 1},
+		{"auth failure", "DELETE", "Bearer valid-user-token", "secret-key", 500, 503, 1},
+	} {
+		h, deleted := setupAccount(t, tc.admin, tc.secret)
+		w := request(h, tc.method, "/v1/account", "", tc.token, "")
+		if w.Code != tc.status || len(*deleted) != tc.calls {
+			t.Errorf("%s: %d after %d admin calls", tc.name, w.Code, len(*deleted))
+		}
+	}
+}
 func TestValidateConfig(t *testing.T) {
 	c := Config{SupabaseURL: "https://project.supabase.co", PublishableKey: "pub", Origins: []string{"https://ninho.example"}}
 	if c.Validate() != nil {
 		t.Fatal("valid config rejected")
+	}
+	c.SecretKey = "sb_secret_abc"
+	if c.Validate() != nil {
+		t.Fatal("secret key rejected")
+	}
+	for i, bad := range []Config{
+		{PublishableKey: "sb_secret_abc"},
+		{PublishableKey: "pub", SecretKey: "pub"},
+		{PublishableKey: "pub", SecretKey: "sb_publishable_abc"},
+	} {
+		bad.SupabaseURL, bad.Origins = c.SupabaseURL, c.Origins
+		if bad.Validate() == nil {
+			t.Errorf("mixed-up keys accepted in case %d", i)
+		}
 	}
 	c.Origins = []string{"*"}
 	if c.Validate() == nil {
