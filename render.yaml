@@ -13,5 +13,8 @@ services:
         sync: false
       - key: SUPABASE_PUBLISHABLE_KEY
         sync: false
+      # Secret key, used only to delete accounts with the Auth admin API. Never in the app or web build.
+      - key: SUPABASE_SECRET_KEY
+        sync: false
       - key: ALLOWED_ORIGINS
         sync: false
