@@ -39,7 +39,7 @@ vercel.json           Publicação web
 
 ## Desenvolvimento
 
-Requisitos: Flutter **3.35.7**, Go **1.27.2**, Java 17/Android SDK para APK e um projeto Supabase. A versão de Flutter fica fixada no build e na integração contínua. `pubspec.lock` deve acompanhar o código.
+Requisitos: Flutter **3.47.7**, Go **1.27.2**, Java 17/Android SDK para APK e um projeto Supabase. A versão de Flutter fica fixada no build e na integração contínua. `pubspec.lock` deve acompanhar o código.
 
 1. Aplique as migrações de `supabase/migrations/`, em ordem, em um projeto Supabase **novo e dedicado**. Elas criam tabelas no schema público, e cada uma deve ser aplicada uma vez. Com a CLI autenticada: `supabase link --project-ref SEU_REF` e `supabase db push`.
 2. No Supabase Auth, configure a Site URL, URLs permitidas de redirecionamento e SMTP antes de distribuir convites/cadastros. Confirmação de e-mail fica habilitada. Para testes locais use `http://localhost:3000`; para a web use sua URL da Vercel. A recuperação de senha usa o fluxo PKCE padrão do `supabase_flutter`: o link do e-mail só conclui a troca no mesmo navegador em que ela foi pedida. O Android ainda não abre esses links, então peça a recuperação pela versão web.
