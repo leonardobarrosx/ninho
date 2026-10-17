@@ -18,6 +18,76 @@ class FieldSpec {
   });
 }
 
+/// Confirms an account deletion. The button only works after the person types
+/// EXCLUIR, so a slip of the finger cannot erase a family's records.
+class DeleteAccountDialog extends StatefulWidget {
+  const DeleteAccountDialog({super.key});
+  @override
+  State<DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
+  final word = TextEditingController();
+  bool get confirmed => word.text.trim().toUpperCase() == 'EXCLUIR';
+  @override
+  void dispose() {
+    word.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    return AlertDialog(
+      title: const Text('Excluir sua conta?'),
+      content: SizedBox(
+        width: 480,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Seu acesso e seu e-mail saem do Ninho na hora. Isto não pode ser desfeito.',
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '• Famílias em que só você participa são apagadas, com todos os registros.\n'
+                '• Famílias com outras pessoas continuam com elas. Se você criou alguma, quem entrou primeiro passa a administrá-la.',
+                style: TextStyle(color: p.muted, height: 1.5),
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                controller: word,
+                autofocus: true,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  labelText: 'Digite EXCLUIR para confirmar',
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: confirmed ? () => Navigator.pop(context, true) : null,
+          style: FilledButton.styleFrom(
+            backgroundColor: p.danger,
+            foregroundColor: p.background,
+          ),
+          child: const Text('Excluir conta'),
+        ),
+      ],
+    );
+  }
+}
+
 Future<Json?> editForm(
   BuildContext context,
   String title,

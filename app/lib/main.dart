@@ -2,21 +2,29 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'ads.dart';
 import 'data.dart';
 import 'screens.dart';
 import 'theme.dart';
+import 'widgets.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (configured) {
     await Supabase.initialize(url: supabaseUrl, anonKey: supabaseKey);
   }
-  runApp(NinhoApp(initialTheme: await savedTheme()));
+  final theme = await savedTheme();
+  runApp(NinhoApp(initialTheme: theme, ads: await AdMobAds.create()));
 }
 
 class NinhoApp extends StatefulWidget {
   final NinhoTheme initialTheme;
-  const NinhoApp({super.key, this.initialTheme = NinhoTheme.system});
+  final Ads ads;
+  const NinhoApp({
+    super.key,
+    this.initialTheme = NinhoTheme.system,
+    this.ads = const Ads(),
+  });
   @override
   State<NinhoApp> createState() => _NinhoAppState();
 }
@@ -25,6 +33,8 @@ class _NinhoAppState extends State<NinhoApp> {
   Store? store;
   StreamSubscription<AuthState>? subscription;
   bool recovery = false;
+  // The launch waits behind the cover while the app open ad decides.
+  late bool covering = widget.ads.coversLaunch;
   late NinhoTheme theme = widget.initialTheme;
   void setTheme(NinhoTheme value) {
     setState(() => theme = value);
@@ -34,6 +44,9 @@ class _NinhoAppState extends State<NinhoApp> {
   @override
   void initState() {
     super.initState();
+    widget.ads.start(blocked: () => recovery).whenComplete(() {
+      if (mounted && covering) setState(() => covering = false);
+    });
     if (configured) {
       if (Supabase.instance.client.auth.currentSession != null) {
         store = Store();
@@ -45,7 +58,9 @@ class _NinhoAppState extends State<NinhoApp> {
         if (!mounted) return;
         setState(() {
           if (state.event == AuthChangeEvent.passwordRecovery) {
+            // Password recovery never waits for an ad, nor gets one.
             recovery = true;
+            covering = false;
           }
           if (state.session == null) {
             store?.dispose();
@@ -82,6 +97,13 @@ class _NinhoAppState extends State<NinhoApp> {
         NinhoTheme.dark => ThemeMode.dark,
         _ => ThemeMode.light,
       },
+      // The app builds under the cover, so it is ready when the ad closes.
+      builder: (context, child) => Stack(
+        children: [
+          ExcludeSemantics(excluding: covering, child: child),
+          if (covering) const Positioned.fill(child: LaunchCover()),
+        ],
+      ),
       home: recovery
           ? RecoveryScreen(onDone: () => setState(() => recovery = false))
           : store == null
@@ -95,6 +117,7 @@ class _NinhoAppState extends State<NinhoApp> {
           : HomeScreen(
               key: ValueKey(store),
               store: store!,
+              ads: widget.ads,
               theme: theme,
               onTheme: setTheme,
               onLogout: () async {
@@ -307,6 +330,11 @@ class _AuthScreenState extends State<AuthScreen> {
                   color: Palette.of(context).muted,
                 ),
               ),
+              if (privacyPolicy case final page?)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: PageLink('Política de privacidade', page),
+                ),
             ],
           ),
         ),

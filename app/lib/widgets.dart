@@ -1,6 +1,58 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'domain.dart';
 import 'theme.dart';
+
+/// Shown over the app while a launch waits for the app open ad. Like the
+/// Android launch screen, it is the page background, here with the logo.
+class LaunchCover extends StatelessWidget {
+  const LaunchCover({super.key});
+  @override
+  Widget build(BuildContext context) => AbsorbPointer(
+    child: ColoredBox(
+      color: Palette.of(context).background,
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            NinhoLogo(size: 96),
+            SizedBox(height: 28),
+            SizedBox.square(
+              dimension: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Opens a page of the site, such as the privacy policy, in the browser.
+class PageLink extends StatelessWidget {
+  final String label;
+  final Uri page;
+  const PageLink(this.label, this.page, {super.key});
+  @override
+  Widget build(BuildContext context) => TextButton.icon(
+    onPressed: () async {
+      final messenger = ScaffoldMessenger.of(context);
+      var opened = false;
+      try {
+        opened = await launchUrl(page, webOnlyWindowName: '_blank');
+      } catch (_) {
+        // Reported below, like a page that did not open.
+      }
+      if (!opened) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Não foi possível abrir a página.')),
+        );
+      }
+    },
+    icon: const Icon(Icons.open_in_new, size: 18),
+    label: Text(label),
+  );
+}
 
 class Panel extends StatelessWidget {
   final Widget child;
