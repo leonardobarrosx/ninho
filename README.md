@@ -16,10 +16,13 @@ Planejamento financeiro e acompanhamento familiar em Flutter, com API Go no Rend
 - Consultas, exames, vacinas, medicamentos e outros registros. Custos vinculados às despesas sem duplicação.
 - Layout responsivo, estados vazios, erros recuperáveis, formulários e demonstração fictícia separada dos dados reais.
 - Identidade visual pastel, com tema claro, escuro e automático (segue o sistema). A escolha fica salva no aparelho.
+- Exclusão de conta no app (Família › Sua conta) e instruções por link web. Famílias com outras pessoas passam para quem entrou primeiro; as demais são apagadas com seus registros.
+- No Android, um anúncio do AdMob na abertura, no máximo a cada 4 horas e depois do consentimento do Google. A versão web não tem anúncios.
+- Política de privacidade e página de exclusão de conta publicadas com a versão web.
 
 ## Limites atuais
 
-Esta é a primeira versão para validação do produto. O frontend ainda precisa passar pela análise, pelos testes de interface e pelos builds; consulte `docs/validation.md`. Ainda não é uma operação comercial completa: cobrança de assinatura, webhooks de pagamento, emissão fiscal, atendimento, auditoria de alterações, exportação/exclusão de conta, notificações push e anexos não estão implementados. Não há integração bancária ou sincronização offline. Escolha o provedor de pagamentos antes de implementar planos pagos; o campo de plano não é editável pelo cliente.
+Esta é a primeira versão para validação do produto. O frontend ainda precisa passar pela análise, pelos testes de interface e pelos builds; consulte `docs/validation.md`. Ainda não é uma operação comercial completa: cobrança de assinatura, webhooks de pagamento, emissão fiscal, atendimento, auditoria de alterações, exportação de dados, notificações push e anexos não estão implementados. Não há integração bancária ou sincronização offline. Escolha o provedor de pagamentos antes de implementar planos pagos; o campo de plano não é editável pelo cliente.
 
 O saldo da dívida é informado manualmente. As parcelas devem ser cadastradas como despesas em Finanças. O app não infere amortização, juros ou evolução do saldo devedor. A baixa financeira não altera automaticamente o saldo cadastrado da dívida.
 
@@ -34,17 +37,18 @@ supabase/migrations/  Schema, políticas de acesso e operações atômicas
 supabase/tests/       Testes de isolamento e regras do banco
 scripts/              Build web para Vercel
 .github/workflows/    Testes e artefatos web/APK de demonstração
+docs/                 Publicação, Google Play e estado da validação
 render.yaml           Serviço da API
 vercel.json           Publicação web
 ```
 
 ## Desenvolvimento
 
-Requisitos: Flutter **3.47.7**, Go **1.27.2**, Java 17/Android SDK para APK e um projeto Supabase. A versão de Flutter fica fixada no build e na integração contínua. `pubspec.lock` deve acompanhar o código.
+Requisitos: Flutter **3.47.7**, Go **1.27.2**, Android Studio (Android SDK e Java 17 ou mais novo) para Android e um projeto Supabase. A versão de Flutter fica fixada no build e na integração contínua. `pubspec.lock` deve acompanhar o código.
 
 1. Aplique as migrações de `supabase/migrations/`, em ordem, em um projeto Supabase **novo e dedicado**. Elas criam tabelas no schema público, e cada uma deve ser aplicada uma vez. Com a CLI autenticada: `supabase link --project-ref SEU_REF` e `supabase db push`.
 2. No Supabase Auth, configure a Site URL, URLs permitidas de redirecionamento e SMTP antes de distribuir convites/cadastros. Confirmação de e-mail fica habilitada. Para testes locais use `http://localhost:3000`; para a web use sua URL da Vercel. A recuperação de senha usa o fluxo PKCE padrão do `supabase_flutter`: o link do e-mail só conclui a troca no mesmo navegador em que ela foi pedida. O Android ainda não abre esses links, então peça a recuperação pela versão web.
-3. Copie `backend/.env.example` para `backend/.env` e preencha URL, chave **publishable/anon** e origens exatas. Não use a chave `service_role` na API ou no app.
+3. Copie `backend/.env.example` para `backend/.env` e preencha URL, chave **publishable/anon** e origens exatas. A chave secreta (`SUPABASE_SECRET_KEY`) só serve para excluir contas; sem ela, a API funciona com essa operação desligada. Ela nunca vai para o app nem para o build web.
 4. Inicie a API:
 
 ```bash
@@ -55,7 +59,7 @@ set +a
 go run ./cmd/api
 ```
 
-5. Copie `app/config.example.json` para `app/config.local.json`. Esse arquivo está ignorado pelo Git. Para web local, configure `API_URL` como `http://localhost:8080`.
+5. Copie `app/config.example.json` para `app/config.local.json`. Esse arquivo está ignorado pelo Git. Para web local, configure `API_URL` como `http://localhost:8080`. `SITE_URL` é o endereço da versão web, usado pelo Android nos links da política de privacidade; `ADMOB_APP_ID` e `ADMOB_APP_OPEN_ID` ficam vazios até haver uma conta do AdMob (veja `docs/play-store.md`).
 
 ```bash
 cd app
@@ -74,17 +78,17 @@ flutter build apk --debug --dart-define-from-file=config.local.json
 
 Saída: `app/build/app/outputs/flutter-apk/app-debug.apk`. É um instalador de testes, assinado com chave de desenvolvimento. A integração contínua também gera um APK de demonstração sem endpoints reais.
 
-Antes da distribuição comercial, configure seu application ID definitivo e uma chave de assinatura de produção. O projeto não inclui chave privada. Consulte `docs/deploy.md` para configurar `key.properties` e gerar release. Não envie keystores ou senhas ao Git.
+Builds de debug mostram o anúncio de abertura de teste do Google. Para a Play, gere o pacote assinado com `flutter build appbundle --release --dart-define-from-file=config.local.json`. Antes, confirme o application ID definitivo e configure a chave de envio em `key.properties`; o projeto não inclui chave privada. O roteiro completo, com AdMob e os formulários do Play Console, está em `docs/play-store.md`. Não envie keystores, senhas nem IDs reais do AdMob ao Git.
 
 ## Segurança e dados
 
-A API valida a sessão no Supabase Auth e encaminha o token do usuário ao Data API. Ela usa somente a chave pública. O banco aplica Row Level Security por família, inclusive se o Data API for chamado diretamente. Chaves elevadas não são necessárias. Os RPCs de compartilhamento e operações atômicas verificam o membro/owner explicitamente. Relacionamentos compostos impedem vincular bebê, medidas e gastos entre famílias.
+A API valida a sessão no Supabase Auth e encaminha o token do usuário ao Data API. Para os dados, ela usa somente a chave pública. A única exceção é a exclusão de conta: com `SUPABASE_SECRET_KEY`, que fica só no Render, a API chama a API admin do Auth para apagar o usuário da sessão verificada, nunca um ID vindo da requisição. Um gatilho no banco decide, na mesma transação, o destino das famílias que a pessoa criou. O banco aplica Row Level Security por família, inclusive se o Data API for chamado diretamente. Os RPCs de compartilhamento e operações atômicas verificam o membro/owner explicitamente. Relacionamentos compostos impedem vincular bebê, medidas e gastos entre famílias.
 
 O Data API continua acessível diretamente com a chave pública e o token do usuário, então a lista de campos da API Go não é a barreira: o banco limita, por coluna, o que o cliente pode inserir e alterar (a mesma lista da API). `household_id` só é definido na criação, e o vínculo da despesa de saúde só é gravado pela RPC. As migrações também retiram privilégios padrão do Supabase que o app não usa: TRUNCATE, REFERENCES e TRIGGER nas tabelas, e EXECUTE das funções para `anon`.
 
 Números monetários são armazenados em centavos inteiros. Registros de pagamento guardam o valor da baixa. Famílias, convites, membros e snapshots de pagamentos não aceitam inserção livre do cliente. Logs da API não registram tokens, nomes, valores ou informações médicas.
 
-Antes de disponibilizar a terceiros: validar os testes no projeto implantado, revisar configurações de Auth/SMTP, definir política de privacidade e retenção, completar os controles de exportação/exclusão de conta, configurar backup e observabilidade. O limite de requisições é em memória por instância; para múltiplas instâncias deve ser compartilhado.
+Antes de disponibilizar a terceiros: validar os testes no projeto implantado, revisar configurações de Auth/SMTP, revisar a política de privacidade com apoio jurídico, implementar a exportação de dados, configurar backup e observabilidade. O limite de requisições é em memória por instância; para múltiplas instâncias deve ser compartilhado.
 
 ## Validação
 
