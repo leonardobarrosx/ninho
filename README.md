@@ -15,7 +15,7 @@ Planejamento financeiro e acompanhamento familiar em Flutter, com API Go no Rend
 - Múltiplos bebês, data prevista/nascimento, peso em gramas e comprimento em milímetros. Gráficos descritivos por data.
 - Consultas, exames, vacinas, medicamentos e outros registros. Custos vinculados às despesas sem duplicação.
 - Layout responsivo, estados vazios, erros recuperáveis, formulários e demonstração fictícia separada dos dados reais.
-- Identidade visual pastel, com tema claro, escuro e automático (segue o sistema). A escolha fica salva no aparelho.
+- Identidade visual pastel, com tema claro, escuro e automático (segue o sistema). A escolha fica salva no aparelho. A logo é um ninho que abraça o ovo; seus arquivos e regras de uso estão em `branding/`.
 - Exclusão de conta no app (Família › Sua conta) e instruções por link web. Famílias com outras pessoas passam para quem entrou primeiro; as demais são apagadas com seus registros.
 - No Android, um anúncio do AdMob na abertura, no máximo a cada 4 horas e depois do consentimento do Google. A versão web não tem anúncios.
 - Política de privacidade e página de exclusão de conta publicadas com a versão web.
@@ -38,6 +38,7 @@ supabase/tests/       Testes de isolamento e regras do banco
 scripts/              Build web para Vercel
 .github/workflows/    Testes e artefatos web/APK de demonstração
 docs/                 Publicação, Google Play e estado da validação
+branding/             Logo, vetores e ícone da Google Play
 render.yaml           Serviço da API
 vercel.json           Publicação web
 ```
