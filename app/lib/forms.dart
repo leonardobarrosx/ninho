@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'domain.dart';
+import 'theme.dart';
 
 class FieldSpec {
   final String key, label, type;
@@ -117,7 +118,7 @@ class _EditDialogState extends State<EditDialog> {
                   padding: const EdgeInsets.only(bottom: 18),
                   child: Text(
                     widget.help!,
-                    style: const TextStyle(color: Colors.black54),
+                    style: TextStyle(color: Palette.of(context).muted),
                   ),
                 ),
               for (final f in widget.fields)

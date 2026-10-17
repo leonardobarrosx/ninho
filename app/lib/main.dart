@@ -4,17 +4,19 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'data.dart';
 import 'screens.dart';
+import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (configured) {
     await Supabase.initialize(url: supabaseUrl, anonKey: supabaseKey);
   }
-  runApp(const NinhoApp());
+  runApp(NinhoApp(initialTheme: await savedTheme()));
 }
 
 class NinhoApp extends StatefulWidget {
-  const NinhoApp({super.key});
+  final NinhoTheme initialTheme;
+  const NinhoApp({super.key, this.initialTheme = NinhoTheme.system});
   @override
   State<NinhoApp> createState() => _NinhoAppState();
 }
@@ -23,6 +25,12 @@ class _NinhoAppState extends State<NinhoApp> {
   Store? store;
   StreamSubscription<AuthState>? subscription;
   bool recovery = false;
+  late NinhoTheme theme = widget.initialTheme;
+  void setTheme(NinhoTheme value) {
+    setState(() => theme = value);
+    saveTheme(value);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -61,56 +69,25 @@ class _NinhoAppState extends State<NinhoApp> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = ColorScheme.fromSeed(
-      seedColor: const Color(0xff316b5b),
-      brightness: Brightness.light,
-    );
     return MaterialApp(
       title: 'Ninho',
       debugShowCheckedModeBanner: false,
       locale: const Locale('pt', 'BR'),
       supportedLocales: const [Locale('pt', 'BR')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: colors,
-        scaffoldBackgroundColor: const Color(0xfff7f8f5),
-        fontFamily: 'Roboto',
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xfff7f8f5),
-          surfaceTintColor: Colors.transparent,
-        ),
-        cardTheme: CardThemeData(
-          elevation: 0,
-          color: Colors.white,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Color(0xffe4e9e2)),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xffdce2dc)),
-          ),
-          contentPadding: const EdgeInsets.all(16),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-      ),
+      theme: buildTheme(Palette.light, Brightness.light),
+      darkTheme: buildTheme(Palette.dark, Brightness.dark),
+      themeMode: switch (theme) {
+        NinhoTheme.system => ThemeMode.system,
+        NinhoTheme.dark => ThemeMode.dark,
+        _ => ThemeMode.light,
+      },
       home: recovery
           ? RecoveryScreen(onDone: () => setState(() => recovery = false))
           : store == null
           ? AuthScreen(
+              theme: theme,
+              onTheme: setTheme,
               onDemo: () {
                 setState(() => store = Store(demo: true));
               },
@@ -118,6 +95,8 @@ class _NinhoAppState extends State<NinhoApp> {
           : HomeScreen(
               key: ValueKey(store),
               store: store!,
+              theme: theme,
+              onTheme: setTheme,
               onLogout: () async {
                 if (store!.demo) {
                   setState(() {
@@ -135,7 +114,14 @@ class _NinhoAppState extends State<NinhoApp> {
 
 class AuthScreen extends StatefulWidget {
   final VoidCallback onDemo;
-  const AuthScreen({super.key, required this.onDemo});
+  final NinhoTheme theme;
+  final ValueChanged<NinhoTheme> onTheme;
+  const AuthScreen({
+    super.key,
+    required this.onDemo,
+    required this.theme,
+    required this.onTheme,
+  });
   @override
   State<AuthScreen> createState() => _AuthScreenState();
 }
@@ -213,17 +199,20 @@ class _AuthScreenState extends State<AuthScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.spa_outlined,
-                size: 48,
-                color: Color(0xff316b5b),
+              Row(
+                children: [
+                  const NinhoLogo(size: 64),
+                  const Spacer(),
+                  ThemeButton(value: widget.theme, onChanged: widget.onTheme),
+                ],
               ),
               const SizedBox(height: 20),
               Text(
                 'Ninho',
-                style: Theme.of(
-                  context,
-                ).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w700),
+                style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: Palette.of(context).ink,
+                ),
               ),
               const SizedBox(height: 12),
               const Text(
@@ -311,9 +300,12 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Demonstração com dados fictícios. Alterações não são salvas.',
-                style: TextStyle(fontSize: 12, color: Colors.black54),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Palette.of(context).muted,
+                ),
               ),
             ],
           ),

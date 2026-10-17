@@ -15,6 +15,7 @@ Planejamento financeiro e acompanhamento familiar em Flutter, com API Go no Rend
 - Múltiplos bebês, data prevista/nascimento, peso em gramas e comprimento em milímetros. Gráficos descritivos por data.
 - Consultas, exames, vacinas, medicamentos e outros registros. Custos vinculados às despesas sem duplicação.
 - Layout responsivo, estados vazios, erros recuperáveis, formulários e demonstração fictícia separada dos dados reais.
+- Identidade visual pastel, com tema claro, escuro e automático (segue o sistema). A escolha fica salva no aparelho.
 
 ## Limites atuais
 
