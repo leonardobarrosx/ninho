@@ -143,6 +143,16 @@ void main() {
     expect((backend.loaded! as FakeAd).shown, isTrue);
   });
 
+  test(
+    'without a consent message, as in Brazil, ads are not personalized',
+    () async {
+      final backend = FakeBackend()..status = ConsentStatus.notRequired;
+      await (await launch(backend, next: past)).start(blocked: () => false);
+      expect(backend.loads, [true]);
+      expect((backend.loaded! as FakeAd).shown, isTrue);
+    },
+  );
+
   test('without any consent answer there is no ad', () async {
     final backend = FakeBackend()
       ..consent = (() async => false)
@@ -220,6 +230,19 @@ void main() {
     final backend = FakeBackend()..privacy = true;
     final ads = await launch(backend, next: past);
     expect(ads.privacyOptions.value, isFalse);
+    await ads.start(blocked: () => false);
+    expect(ads.privacyOptions.value, isTrue);
+  });
+
+  test('the privacy options show even when consent never answers', () async {
+    final backend = FakeBackend()
+      ..consent = (() => Completer<bool>().future)
+      ..privacy = true;
+    final ads = await launch(
+      backend,
+      next: past,
+      wait: const Duration(milliseconds: 50),
+    );
     await ads.start(blocked: () => false);
     expect(ads.privacyOptions.value, isTrue);
   });
