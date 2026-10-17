@@ -32,6 +32,10 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Filled by app/build.gradle.kts from ADMOB_APP_ID, or Google's sample ID for test ads. -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="${adMobAppId}" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -42,6 +46,11 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Opens the privacy policy and other pages of the site in the browser (url_launcher). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
         </intent>
     </queries>
 </manifest>

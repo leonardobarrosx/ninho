@@ -2,10 +2,13 @@ package api
 
 import (
 	"bytes"
+	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -17,8 +20,11 @@ import (
 
 type Config struct {
 	SupabaseURL, PublishableKey string
-	Origins                     []string
-	Client                      *http.Client
+	// SecretKey is used for one call only: deleting the signed-in user with the Auth admin API.
+	// Without it, account deletion answers 503 and everything else works.
+	SecretKey string
+	Origins   []string
+	Client    *http.Client
 }
 
 func (c Config) Validate() error {
@@ -31,6 +37,12 @@ func (c Config) Validate() error {
 	}
 	if c.PublishableKey == "" {
 		return errors.New("SUPABASE_PUBLISHABLE_KEY is required")
+	}
+	if strings.HasPrefix(c.PublishableKey, "sb_secret_") {
+		return errors.New("SUPABASE_PUBLISHABLE_KEY must be the publishable key, not a secret key")
+	}
+	if c.SecretKey != "" && (c.SecretKey == c.PublishableKey || strings.HasPrefix(c.SecretKey, "sb_publishable_")) {
+		return errors.New("SUPABASE_SECRET_KEY must be the secret key")
 	}
 	if len(c.Origins) == 0 {
 		return errors.New("ALLOWED_ORIGINS is required")
@@ -65,6 +77,10 @@ var fields = map[string]string{
 	"measurements":  "household_id,baby_id,measured_at,weight_grams,length_mm,notes",
 	"health_events": "household_id,baby_id,title,event_type,event_date,provider,notes,completed",
 }
+
+// userKey holds the ID of the user verified by protect in the request context.
+type userKey struct{}
+
 var readable = map[string]bool{"households": true, "household_members": true, "babies": true, "entries": true, "settlements": true, "debts": true, "goals": true, "measurements": true, "health_events": true}
 var rpcFields = map[string]string{"create_household": "p_name", "create_invite": "p_household_id", "accept_invite": "p_token", "settle_entry": "p_entry_id,p_occurrence,p_paid", "buy_goal": "p_goal_id,p_quantity,p_cost_cents,p_date", "record_health_cost": "p_event_id,p_amount_cents,p_date", "list_members": "p_household_id", "remove_member": "p_household_id,p_user_id", "leave_household": "p_household_id"}
 
@@ -160,7 +176,7 @@ func (s *Server) protect(next http.Handler) http.Handler {
 			fail(w, 429, "Muitas solicitações. Tente novamente em um minuto")
 			return
 		}
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey{}, user.ID)))
 	})
 }
 func (s *Server) allow(id string) bool {
@@ -186,6 +202,10 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(strings.Trim(strings.TrimPrefix(r.URL.Path, "/v1/"), "/"), "/")
 	if len(parts) == 2 && parts[0] == "rpc" {
 		s.rpc(w, r, parts[1])
+		return
+	}
+	if len(parts) == 1 && parts[0] == "account" {
+		s.deleteAccount(w, r)
 		return
 	}
 	if len(parts) < 2 || len(parts) > 3 || parts[0] != "data" || !readable[parts[1]] {
@@ -287,6 +307,81 @@ func (s *Server) rpc(w http.ResponseWriter, r *http.Request, name string) {
 	}
 	body, _ := json.Marshal(obj)
 	s.forward(w, r, "/rest/v1/rpc/"+name, body)
+}
+
+// deleteAccount erases the signed-in user with the Auth admin API, the only call made with the secret key.
+// The ID comes from the session protect verified, never from the request. Before the user row goes, the
+// trigger from 202610170001_account_deletion.sql hands shared families over and erases the others.
+func (s *Server) deleteAccount(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		fail(w, 405, "Use DELETE")
+		return
+	}
+	if s.cfg.SecretKey == "" {
+		fail(w, 503, "A exclusão de conta não está disponível agora. Tente mais tarde")
+		return
+	}
+	id, _ := r.Context().Value(userKey{}).(string)
+	if !uuid.MatchString(id) {
+		fail(w, 401, "Sessão inválida")
+		return
+	}
+	// A stolen token or an unlocked phone must not be enough: the app signs in again with the password
+	// right before this call, so only a session that has just been authenticated may delete the account.
+	if at, ok := authenticatedAt(r.Header.Get("Authorization")); !ok || time.Since(at) > reauthWindow {
+		fail(w, 403, "Por segurança, confirme sua senha para excluir a conta")
+		return
+	}
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodDelete, s.cfg.SupabaseURL+"/auth/v1/admin/users/"+id, nil)
+	if err != nil {
+		fail(w, 500, "Não foi possível preparar a operação")
+		return
+	}
+	req.Header.Set("apikey", s.cfg.SecretKey)
+	req.Header.Set("Authorization", "Bearer "+s.cfg.SecretKey)
+	res, err := s.client.Do(req)
+	if err != nil {
+		fail(w, 503, "Não foi possível excluir a conta agora. Tente novamente")
+		return
+	}
+	defer res.Body.Close()
+	// 404: the user is already gone, which is what was asked for.
+	if res.StatusCode >= 300 && res.StatusCode != 404 {
+		slog.Error("account deletion failed", "status", res.StatusCode)
+		fail(w, 503, "Não foi possível excluir a conta agora. Tente novamente")
+		return
+	}
+	w.WriteHeader(204)
+}
+
+// reauthWindow is how recent the last sign-in must be for the account to be deleted.
+const reauthWindow = 10 * time.Minute
+
+// authenticatedAt reads when the session was last authenticated (the amr claim, which survives token
+// refreshes). It decodes without checking the signature, so call it only after protect, whose call to
+// Supabase Auth has just accepted this exact token.
+func authenticatedAt(authorization string) (time.Time, bool) {
+	parts := strings.Split(strings.TrimPrefix(authorization, "Bearer "), ".")
+	if len(parts) != 3 {
+		return time.Time{}, false
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return time.Time{}, false
+	}
+	var claims struct {
+		Amr []struct {
+			Timestamp int64 `json:"timestamp"`
+		} `json:"amr"`
+	}
+	if json.Unmarshal(payload, &claims) != nil {
+		return time.Time{}, false
+	}
+	var latest int64
+	for _, m := range claims.Amr {
+		latest = max(latest, m.Timestamp)
+	}
+	return time.Unix(latest, 0), latest > 0
 }
 func decode(w http.ResponseWriter, r *http.Request, allowed string) (map[string]any, error) {
 	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
