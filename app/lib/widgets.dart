@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'domain.dart';
-
-const ink = Color(0xff233c35),
-    green = Color(0xff316b5b),
-    muted = Color(0xff69796e);
+import 'theme.dart';
 
 class Panel extends StatelessWidget {
   final Widget child;
@@ -24,98 +21,115 @@ class Heading extends StatelessWidget {
   final Widget? action;
   const Heading(this.title, this.subtitle, {super.key, this.action});
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 24),
-    child: LayoutBuilder(
-      builder: (context, b) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: b.maxWidth < 600 ? 26 : 32,
-                    fontWeight: FontWeight.w700,
-                    color: ink,
-                    letterSpacing: -.8,
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: LayoutBuilder(
+        builder: (context, b) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: b.maxWidth < 600 ? 26 : 32,
+                      fontWeight: FontWeight.w800,
+                      color: p.ink,
+                      letterSpacing: -.8,
+                    ),
                   ),
                 ),
-              ),
-              if (action != null && b.maxWidth >= 600) action!,
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(subtitle, style: const TextStyle(color: muted, height: 1.5)),
-          if (action != null && b.maxWidth < 600)
-            Padding(padding: const EdgeInsets.only(top: 16), child: action!),
-        ],
+                if (action != null && b.maxWidth >= 600) action!,
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(subtitle, style: TextStyle(color: p.muted, height: 1.5)),
+            if (action != null && b.maxWidth < 600)
+              Padding(padding: const EdgeInsets.only(top: 16), child: action!),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
+/// A summary card. Without [color] it is a plain surface; with it, a colored
+/// block whose text uses [onColor] (or the theme ink on light tints).
 class Metric extends StatelessWidget {
   final String label, value, note;
   final IconData icon;
-  final bool accent;
+  final Color? color, onColor, accent;
   const Metric(
     this.label,
     this.value,
     this.note,
     this.icon, {
     super.key,
-    this.accent = false,
+    this.color,
+    this.onColor,
+    this.accent,
   });
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(22),
-    decoration: BoxDecoration(
-      color: accent ? green : Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: accent ? green : const Color(0xffe4e9e2)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(color: accent ? Colors.white70 : muted),
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    final strong = onColor ?? p.ink;
+    final soft = onColor ?? p.muted;
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: color ?? p.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: color == null ? Border.all(color: p.border) : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(color: soft, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: strong.withValues(alpha: .08),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: onColor ?? accent ?? p.brand,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -.7,
+                color: strong,
               ),
             ),
-            Icon(icon, color: accent ? Colors.white70 : green, size: 21),
-          ],
-        ),
-        const SizedBox(height: 16),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -.7,
-              color: accent ? Colors.white : ink,
-            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          note,
-          style: TextStyle(
-            color: accent ? Colors.white70 : muted,
-            fontSize: 12,
-          ),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(height: 8),
+          Text(note, style: TextStyle(color: soft, fontSize: 12)),
+        ],
+      ),
+    );
+  }
 }
 
 class MetricGrid extends StatelessWidget {
@@ -150,37 +164,52 @@ class EmptyState extends StatelessWidget {
   final VoidCallback? onAdd;
   const EmptyState(this.title, this.text, {super.key, this.onAdd});
   @override
-  Widget build(BuildContext context) => Panel(
-    child: Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Column(
-          children: [
-            const Icon(Icons.add_circle_outline, size: 36, color: green),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              text,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: muted),
-            ),
-            if (onAdd != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 18),
-                child: FilledButton(
-                  onPressed: onAdd,
-                  child: const Text('Adicionar'),
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    return Panel(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: p.brandTint,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.add_rounded, size: 30, color: p.brandText),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
+                  color: p.ink,
                 ),
               ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                text,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: p.muted),
+              ),
+              if (onAdd != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 18),
+                  child: FilledButton(
+                    onPressed: onAdd,
+                    child: const Text('Adicionar'),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class SectionTitle extends StatelessWidget {
@@ -188,30 +217,33 @@ class SectionTitle extends StatelessWidget {
   final String? caption;
   const SectionTitle(this.title, {super.key, this.caption});
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 19,
-            fontWeight: FontWeight.w700,
-            color: ink,
-          ),
-        ),
-        if (caption != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              caption!,
-              style: const TextStyle(color: muted, fontSize: 13),
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              color: p.ink,
             ),
           ),
-      ],
-    ),
-  );
+          if (caption != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                caption!,
+                style: TextStyle(color: p.muted, fontSize: 13),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class GrowthChart extends StatelessWidget {
@@ -228,6 +260,7 @@ class GrowthChart extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) {
+    final p = Palette.of(context);
     final sorted = rows.where((r) => r[field] != null).toList()
       ..sort(
         (a, b) =>
@@ -239,9 +272,9 @@ class GrowthChart extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SectionTitle(title),
-            const Text(
+            Text(
               'Registre ao menos duas medidas para ver a evolução.',
-              style: TextStyle(color: muted),
+              style: TextStyle(color: p.muted),
             ),
           ],
         ),
@@ -262,7 +295,16 @@ class GrowthChart extends StatelessWidget {
             child: Semantics(
               label:
                   'Evolução de $title: ${sorted.map((r) => '${dateText(r['measured_at'] as String)}: ${decimal(number(r, field) / divisor)} $unit').join(', ')}',
-              child: CustomPaint(painter: LinePainter(sorted, field, divisor)),
+              child: CustomPaint(
+                painter: LinePainter(
+                  sorted,
+                  field,
+                  divisor,
+                  line: p.brand,
+                  grid: p.border,
+                  label: p.muted,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -271,11 +313,11 @@ class GrowthChart extends StatelessWidget {
             children: [
               Text(
                 dateText(sorted.first['measured_at'] as String),
-                style: const TextStyle(fontSize: 12, color: muted),
+                style: TextStyle(fontSize: 12, color: p.muted),
               ),
               Text(
                 dateText(sorted.last['measured_at'] as String),
-                style: const TextStyle(fontSize: 12, color: muted),
+                style: TextStyle(fontSize: 12, color: p.muted),
               ),
             ],
           ),
@@ -289,7 +331,15 @@ class LinePainter extends CustomPainter {
   final List<Json> rows;
   final String field;
   final int divisor;
-  LinePainter(this.rows, this.field, this.divisor);
+  final Color line, grid, label;
+  LinePainter(
+    this.rows,
+    this.field,
+    this.divisor, {
+    required this.line,
+    required this.grid,
+    required this.label,
+  });
   @override
   void paint(Canvas canvas, Size size) {
     final values = rows.map((e) => number(e, field) / divisor).toList();
@@ -312,16 +362,16 @@ class LinePainter extends CustomPainter {
       canvas.drawLine(
         Offset(42, y),
         Offset(size.width, y),
-        Paint()..color = const Color(0xffedf0ea),
+        Paint()..color = grid,
       );
-      final label = TextPainter(
+      final text = TextPainter(
         text: TextSpan(
           text: decimal(max - delta * i / 2, digits: 1),
-          style: const TextStyle(fontSize: 11, color: muted),
+          style: TextStyle(fontSize: 11, color: label),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      label.paint(canvas, Offset(0, y - 7));
+      text.paint(canvas, Offset(0, y - 7));
     }
     for (var i = 0; i < values.length; i++) {
       final x =
@@ -337,14 +387,16 @@ class LinePainter extends CustomPainter {
       } else {
         path.lineTo(x, y);
       }
-      canvas.drawCircle(Offset(x, y), 4, Paint()..color = green);
+      canvas.drawCircle(Offset(x, y), 5, Paint()..color = line);
     }
     canvas.drawPath(
       path,
       Paint()
-        ..color = green
+        ..color = line
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5,
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
     );
   }
 
