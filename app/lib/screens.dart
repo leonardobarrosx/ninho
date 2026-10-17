@@ -1523,7 +1523,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget family() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       const Heading(
         'Juntos no mesmo plano.',
