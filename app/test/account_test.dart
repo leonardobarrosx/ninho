@@ -27,14 +27,15 @@ class CoverAds extends Ads {
 class AccountStore extends Store {
   AccountStore({this.failure}) : super(demo: true);
   final Exception? failure;
-  int deletions = 0;
+  final passwords = <String>[];
+  int get deletions => passwords.length;
   @override
   String? get email => 'ana@ninho.test';
   @override
   bool get canDeleteAccount => true;
   @override
-  Future<void> deleteAccount() async {
-    deletions++;
+  Future<void> deleteAccount(String password) async {
+    passwords.add(password);
     if (failure != null) throw failure!;
   }
 }
@@ -116,7 +117,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('deleting an account needs EXCLUIR typed (${theme.name})', (
+    testWidgets('deleting an account asks for the password (${theme.name})', (
       tester,
     ) async {
       final store = AccountStore();
@@ -128,13 +129,15 @@ void main() {
       FilledButton confirm() =>
           tester.widget<FilledButton>(button<FilledButton>('Excluir conta'));
       expect(confirm().onPressed, isNull);
-      await tester.enterText(find.byType(TextField), 'excluir');
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.obscureText, isTrue);
+      await tester.enterText(find.byType(TextField), 'senha-da-ana');
       await tester.pump();
       expect(confirm().onPressed, isNotNull);
       expect(tester.takeException(), isNull);
       await tester.tap(button<FilledButton>('Excluir conta'));
       await tester.pumpAndSettle();
-      expect(store.deletions, 1);
+      expect(store.passwords, ['senha-da-ana']);
       expect(find.text('Conta excluída.'), findsOneWidget);
     });
   }
@@ -144,7 +147,7 @@ void main() {
     await openAccount(tester, home(store, NinhoTheme.light));
     await tester.tap(button<OutlinedButton>('Excluir minha conta'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'EXCLUIR');
+    await tester.enterText(find.byType(TextField), 'senha-da-ana');
     await tester.tap(find.text('Cancelar'));
     await tester.pumpAndSettle();
     expect(store.deletions, 0);
@@ -153,23 +156,16 @@ void main() {
   testWidgets('a failed deletion says why and keeps the account', (
     tester,
   ) async {
-    final store = AccountStore(
-      failure: Exception(
-        'Não foi possível excluir a conta agora. Tente novamente',
-      ),
-    );
+    final store = AccountStore(failure: Exception('Senha incorreta.'));
     await openAccount(tester, home(store, NinhoTheme.dark));
     await tester.tap(button<OutlinedButton>('Excluir minha conta'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'EXCLUIR');
+    await tester.enterText(find.byType(TextField), 'senha-errada');
     await tester.pump();
     await tester.tap(button<FilledButton>('Excluir conta'));
     await tester.pumpAndSettle();
     expect(store.deletions, 1);
-    expect(
-      find.text('Não foi possível excluir a conta agora. Tente novamente'),
-      findsOneWidget,
-    );
+    expect(find.text('Senha incorreta.'), findsOneWidget);
     expect(find.text('Sua conta'), findsOneWidget);
   });
 }

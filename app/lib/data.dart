@@ -65,11 +65,26 @@ class Store extends ChangeNotifier {
 
   /// Deletes the account on the server and ends the session here. Families
   /// shared with other people stay with them; the others go with their data.
-  Future<void> deleteAccount() async {
+  ///
+  /// The password is checked with a fresh sign-in first: the API only deletes
+  /// an account whose last sign-in has just happened.
+  Future<void> deleteAccount(String password) async {
     if (demo) throw Exception('A demonstração não tem conta para excluir.');
+    final auth = Supabase.instance.client.auth;
+    final address = email;
+    if (address == null) throw Exception('Entre na sua conta novamente.');
+    try {
+      await auth.signInWithPassword(email: address, password: password);
+    } on AuthException catch (e) {
+      throw Exception(
+        e.code == 'invalid_credentials'
+            ? 'Senha incorreta.'
+            : 'Não foi possível confirmar sua senha. Tente novamente.',
+      );
+    }
     await request('DELETE', 'account');
     // The account no longer exists, so only the local session is cleared.
-    await Supabase.instance.client.auth.signOut(scope: SignOutScope.local);
+    await auth.signOut(scope: SignOutScope.local);
   }
 
   Future<dynamic> request(String method, String path, [Json? body]) async {

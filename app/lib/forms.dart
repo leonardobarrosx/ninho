@@ -18,8 +18,9 @@ class FieldSpec {
   });
 }
 
-/// Confirms an account deletion. The button only works after the person types
-/// EXCLUIR, so a slip of the finger cannot erase a family's records.
+/// Confirms an account deletion with the account password, which pops as the
+/// result. A slip of the finger cannot erase a family's records, and neither
+/// can someone holding an unlocked phone.
 class DeleteAccountDialog extends StatefulWidget {
   const DeleteAccountDialog({super.key});
   @override
@@ -27,11 +28,11 @@ class DeleteAccountDialog extends StatefulWidget {
 }
 
 class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
-  final word = TextEditingController();
-  bool get confirmed => word.text.trim().toUpperCase() == 'EXCLUIR';
+  final password = TextEditingController();
+  bool get confirmed => password.text.isNotEmpty;
   @override
   void dispose() {
-    word.dispose();
+    password.dispose();
     super.dispose();
   }
 
@@ -58,11 +59,12 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
               ),
               const SizedBox(height: 18),
               TextField(
-                controller: word,
+                controller: password,
                 autofocus: true,
-                textCapitalization: TextCapitalization.characters,
+                obscureText: true,
+                autofillHints: const [AutofillHints.password],
                 decoration: const InputDecoration(
-                  labelText: 'Digite EXCLUIR para confirmar',
+                  labelText: 'Sua senha, para confirmar',
                 ),
                 onChanged: (_) => setState(() {}),
               ),
@@ -72,11 +74,13 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context, false),
+          onPressed: () => Navigator.pop(context),
           child: const Text('Cancelar'),
         ),
         FilledButton(
-          onPressed: confirmed ? () => Navigator.pop(context, true) : null,
+          onPressed: confirmed
+              ? () => Navigator.pop(context, password.text)
+              : null,
           style: FilledButton.styleFrom(
             backgroundColor: p.danger,
             foregroundColor: p.background,

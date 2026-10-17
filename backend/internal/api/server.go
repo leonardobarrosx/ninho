@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -325,6 +326,12 @@ func (s *Server) deleteAccount(w http.ResponseWriter, r *http.Request) {
 		fail(w, 401, "Sessão inválida")
 		return
 	}
+	// A stolen token or an unlocked phone must not be enough: the app signs in again with the password
+	// right before this call, so only a session that has just been authenticated may delete the account.
+	if at, ok := authenticatedAt(r.Header.Get("Authorization")); !ok || time.Since(at) > reauthWindow {
+		fail(w, 403, "Por segurança, confirme sua senha para excluir a conta")
+		return
+	}
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodDelete, s.cfg.SupabaseURL+"/auth/v1/admin/users/"+id, nil)
 	if err != nil {
 		fail(w, 500, "Não foi possível preparar a operação")
@@ -345,6 +352,36 @@ func (s *Server) deleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(204)
+}
+
+// reauthWindow is how recent the last sign-in must be for the account to be deleted.
+const reauthWindow = 10 * time.Minute
+
+// authenticatedAt reads when the session was last authenticated (the amr claim, which survives token
+// refreshes). It decodes without checking the signature, so call it only after protect, whose call to
+// Supabase Auth has just accepted this exact token.
+func authenticatedAt(authorization string) (time.Time, bool) {
+	parts := strings.Split(strings.TrimPrefix(authorization, "Bearer "), ".")
+	if len(parts) != 3 {
+		return time.Time{}, false
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return time.Time{}, false
+	}
+	var claims struct {
+		Amr []struct {
+			Timestamp int64 `json:"timestamp"`
+		} `json:"amr"`
+	}
+	if json.Unmarshal(payload, &claims) != nil {
+		return time.Time{}, false
+	}
+	var latest int64
+	for _, m := range claims.Amr {
+		latest = max(latest, m.Timestamp)
+	}
+	return time.Unix(latest, 0), latest > 0
 }
 func decode(w http.ResponseWriter, r *http.Request, allowed string) (map[string]any, error) {
 	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
