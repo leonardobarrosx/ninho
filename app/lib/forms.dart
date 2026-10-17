@@ -77,8 +77,9 @@ class _EditDialogState extends State<EditDialog> {
   }
 
   String? validate(FieldSpec f, String? v) {
-    if (v == null || v.trim().isEmpty)
+    if (v == null || v.trim().isEmpty) {
       return f.optional ? null : 'Preencha este campo';
+    }
     if (f.type == 'money' || f.type == 'int') {
       try {
         final n = f.type == 'money' ? parseMoney(v) : int.parse(v);
@@ -93,8 +94,9 @@ class _EditDialogState extends State<EditDialog> {
       final date = DateTime.tryParse(v);
       if (date == null || iso(date) != v) return 'Selecione uma data válida';
     }
-    if (f.type == 'text' && v.trim().length > (f.max < 120 ? f.max : 120))
+    if (f.type == 'text' && v.trim().length > (f.max < 120 ? f.max : 120)) {
       return 'Texto muito longo';
+    }
     if (f.type == 'notes' && v.length > 2000) return 'Use até 2.000 caracteres';
     return null;
   }
@@ -178,8 +180,9 @@ class _EditDialogState extends State<EditDialog> {
                                     firstDate: DateTime(2000),
                                     lastDate: DateTime(2100),
                                   );
-                                  if (chosen != null)
+                                  if (chosen != null) {
                                     controls[f.key]!.text = iso(chosen);
+                                  }
                                 }
                               : null,
                         ),

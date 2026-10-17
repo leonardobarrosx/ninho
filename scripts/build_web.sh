@@ -3,7 +3,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 sdk="${FLUTTER_ROOT:-$root/.sdk/flutter}"
 if [[ ! -x "$sdk/bin/flutter" ]]; then
-  git clone --depth 1 --branch 3.35.7 https://github.com/flutter/flutter.git "$sdk"
+  git clone --depth 1 --branch 3.47.7 https://github.com/flutter/flutter.git "$sdk"
 fi
 export PATH="$sdk/bin:$PATH"
 cd "$root/app"

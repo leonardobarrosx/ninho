@@ -233,7 +233,7 @@ class GrowthChart extends StatelessWidget {
         (a, b) =>
             (a['measured_at'] as String).compareTo(b['measured_at'] as String),
       );
-    if (sorted.length < 2)
+    if (sorted.length < 2) {
       return Panel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,6 +246,7 @@ class GrowthChart extends StatelessWidget {
           ],
         ),
       );
+    }
     return Panel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

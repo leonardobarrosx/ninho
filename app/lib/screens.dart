@@ -65,13 +65,14 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(cleanError(e)),
             backgroundColor: const Color(0xff963f32),
           ),
         );
+      }
     } finally {
       if (mounted) setState(() => saving = false);
     }
@@ -92,8 +93,9 @@ class _HomeScreenState extends State<HomeScreen> {
       initial: row ?? defaults,
       help: help,
     );
-    if (result != null)
+    if (result != null) {
       await perform(() => s.save(resource, result, id: row?['id'] as String?));
+    }
   }
 
   Future<void> remove(String resource, Json row) async {
@@ -116,8 +118,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-    if (ok == true)
+    if (ok == true) {
       await perform(() => s.remove(resource, row['id'] as String));
+    }
   }
 
   Widget actions(String resource, Json row, VoidCallback onEdit) =>
@@ -169,69 +172,74 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           children: [
             if (wide)
-              Container(
-                width: 210,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(right: BorderSide(color: Color(0xffe4e9e2))),
+              Material(
+                color: Colors.white,
+                shape: const Border(
+                  right: BorderSide(color: Color(0xffe4e9e2)),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(26, 34, 20, 36),
-                      child: Row(
-                        children: [
-                          Icon(Icons.spa_outlined, color: green, size: 30),
-                          SizedBox(width: 10),
-                          Text(
-                            'Ninho',
-                            style: TextStyle(
-                              fontSize: 27,
-                              fontWeight: FontWeight.w700,
-                              color: ink,
+                child: SizedBox(
+                  width: 210,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(26, 34, 20, 36),
+                        child: Row(
+                          children: [
+                            Icon(Icons.spa_outlined, color: green, size: 30),
+                            SizedBox(width: 10),
+                            Flexible(
+                              child: Text(
+                                'Ninho',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 27,
+                                  fontWeight: FontWeight.w700,
+                                  color: ink,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    for (var i = 0; i < labels.length; i++)
+                      for (var i = 0; i < labels.length; i++)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 4,
+                          ),
+                          child: ListTile(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            selected: i == page,
+                            selectedTileColor: const Color(0xffe7f0e9),
+                            selectedColor: green,
+                            leading: Icon(icons[i], size: 21),
+                            title: Text(
+                              labels[i],
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            onTap: () => go(i),
+                          ),
+                        ),
+                      const Spacer(),
                       Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 4,
-                        ),
-                        child: ListTile(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                        padding: const EdgeInsets.all(22),
+                        child: Text(
+                          'Um passo de cada vez.\nTudo no seu tempo.',
+                          style: TextStyle(
+                            color: muted.withValues(alpha: .85),
+                            height: 1.6,
+                            fontSize: 13,
                           ),
-                          selected: i == page,
-                          selectedTileColor: const Color(0xffe7f0e9),
-                          selectedColor: green,
-                          leading: Icon(icons[i], size: 21),
-                          title: Text(
-                            labels[i],
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          onTap: () => go(i),
                         ),
                       ),
-                    const Spacer(),
-                    Padding(
-                      padding: const EdgeInsets.all(22),
-                      child: Text(
-                        'Um passo de cada vez.\nTudo no seu tempo.',
-                        style: TextStyle(
-                          color: muted.withValues(alpha: .85),
-                          height: 1.6,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             Expanded(
@@ -1030,8 +1038,9 @@ class _HomeScreenState extends State<HomeScreen> {
       help:
           'Use R\$ 0 para presente ou reaproveitamento. Um valor pago será registrado uma única vez nas despesas do mês.',
     );
-    if (data != null)
+    if (data != null) {
       await perform(() => s.rpc('buy_goal', {'p_goal_id': g['id'], ...data}));
+    }
   }
 
   Future<void> seedEssentials() async {
@@ -1105,7 +1114,7 @@ class _HomeScreenState extends State<HomeScreen> {
   );
   Widget baby() {
     final babies = s.rows('babies');
-    if (babies.isEmpty)
+    if (babies.isEmpty) {
       return Column(
         children: [
           Heading(
@@ -1120,6 +1129,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       );
+    }
     final selected =
         babies.where((b) => b['id'] == babyId).firstOrNull ?? babies.first;
     final measures =
@@ -1291,10 +1301,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (result == null) return;
     if (result['weight_grams'] == null && result['length_mm'] == null) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Informe peso ou comprimento.')),
         );
+      }
       return;
     }
     await perform(
@@ -1456,10 +1467,11 @@ class _HomeScreenState extends State<HomeScreen> {
       initial: {'p_date': iso(DateTime.now())},
       help: 'O valor será incluído em Saúde nas despesas e marcado como pago.',
     );
-    if (result != null)
+    if (result != null) {
       await perform(
         () => s.rpc('record_health_cost', {'p_event_id': e['id'], ...result}),
       );
+    }
   }
 
   Widget onboarding() => Center(
@@ -1511,7 +1523,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget family() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       const Heading(
         'Juntos no mesmo plano.',
@@ -1524,11 +1536,15 @@ class _HomeScreenState extends State<HomeScreen> {
             const SectionTitle('Família atual'),
             DropdownButtonFormField<String>(
               value: s.householdId,
+              isExpanded: true,
               items: [
                 for (final h in s.households)
                   DropdownMenuItem(
                     value: h['id'] as String,
-                    child: Text(h['name'] as String),
+                    child: Text(
+                      h['name'] as String,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
               ],
               onChanged: saving

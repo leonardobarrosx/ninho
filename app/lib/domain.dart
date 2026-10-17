@@ -15,10 +15,11 @@ int parseMoney(String input) {
   if (s.contains(',')) {
     s = s.replaceAll('.', '').replaceAll(',', '.');
   }
-  if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(s))
+  if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(s)) {
     throw const FormatException(
       'Use um valor positivo com até 2 casas decimais',
     );
+  }
   final parts = s.split('.');
   final value =
       int.parse(parts.first) * 100 +
@@ -56,8 +57,9 @@ List<Occurrence> occurrences(
     if (day.isBefore(first) ||
         day.isAfter(last) ||
         day.isBefore(start) ||
-        (end != null && day.isAfter(end)))
+        (end != null && day.isAfter(end))) {
       continue;
+    }
     Json? paid;
     for (final item in settlements) {
       if (item['entry_id'] == entry['id'] && item['occurrence'] == iso(day)) {

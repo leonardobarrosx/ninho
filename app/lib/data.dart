@@ -48,8 +48,9 @@ class Store extends ChangeNotifier {
   }
 
   Future<dynamic> request(String method, String path, [Json? body]) async {
-    if (!configured)
+    if (!configured) {
       throw Exception('Configure a conexão antes de salvar dados reais.');
+    }
     var session = Supabase.instance.client.auth.currentSession;
     if (session == null) throw Exception('Entre na sua conta.');
     if (session.isExpired) {
@@ -118,8 +119,9 @@ class Store extends ChangeNotifier {
       final families = await _load('households');
       if (_disposed || version != _refreshVersion) return;
       households = families;
-      if (!households.any((e) => e['id'] == householdId))
+      if (!households.any((e) => e['id'] == householdId)) {
         householdId = households.firstOrNull?['id'] as String?;
+      }
       if (householdId != null) {
         final selected = householdId;
         final loaded = await Future.wait([
@@ -217,13 +219,14 @@ class Store extends ChangeNotifier {
               0,
               99999999999,
             );
-        if ((args['p_cost_cents'] as int) > 0)
+        if ((args['p_cost_cents'] as int) > 0) {
           _demoExpense(
             g['title'] as String,
             args['p_cost_cents'] as int,
             args['p_date'] as String,
             'Enxoval',
           );
+        }
       } else if (name == 'record_health_cost') {
         final e = rows(
           'health_events',
