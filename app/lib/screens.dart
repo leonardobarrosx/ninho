@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'ads.dart';
 import 'data.dart';
 import 'domain.dart';
 import 'forms.dart';
@@ -9,12 +10,14 @@ import 'widgets.dart';
 
 class HomeScreen extends StatefulWidget {
   final Store store;
+  final Ads ads;
   final Future<void> Function() onLogout;
   final NinhoTheme theme;
   final ValueChanged<NinhoTheme> onTheme;
   const HomeScreen({
     super.key,
     required this.store,
+    this.ads = const Ads(),
     required this.onLogout,
     required this.theme,
     required this.onTheme,
@@ -1140,7 +1143,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ],
     row: row,
     help:
-        'Use a data prevista informada no pré-natal. Você pode cadastrar mais de um bebê.',
+        'Use a data prevista informada no pré-natal. Você pode cadastrar mais de um bebê. Ao salvar, você declara ser mãe, pai ou responsável legal e autoriza o registro dos dados e da saúde do bebê, que ficam só com a sua família.',
   );
   Widget baby() {
     final babies = s.rows('babies');
@@ -1373,7 +1376,7 @@ class _HomeScreenState extends State<HomeScreen> {
     row: row,
     defaults: {'event_type': 'appointment', 'event_date': iso(DateTime.now())},
     help:
-        'Registre consultas, exames, vacinas e medicamentos conforme a orientação recebida. O app não prescreve doses nem interpreta resultados.',
+        'Registre consultas, exames, vacinas e medicamentos conforme a orientação recebida. O app não prescreve doses nem interpreta resultados. Esses dados ficam só com a sua família e nunca são usados em anúncios.',
   );
   Widget health() {
     final list = [...s.rows('health_events')]
@@ -1660,13 +1663,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       const SizedBox(height: 20),
+      account(),
+      const SizedBox(height: 20),
       Panel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SectionTitle('Sobre esta versão'),
             Text(
-              'Ninho 0.1 · Planejamento familiar\n\nRecursos de cobrança de assinatura não estão ativos nesta versão. O compartilhamento funciona por família.\n\nEm Saúde, registre informações recebidas dos profissionais. O aplicativo não substitui o acompanhamento clínico.',
+              'Ninho 0.1 · Planejamento familiar\n\nRecursos de cobrança de assinatura não estão ativos nesta versão. O compartilhamento funciona por família.\n\nEm Saúde, registre informações recebidas dos profissionais. O aplicativo não substitui o acompanhamento clínico.${widget.ads.enabled ? '\n\nO app é gratuito e mostra um anúncio ao abrir, no máximo a cada 4 horas. Dados de finanças, família e saúde nunca são usados em anúncios.' : ''}',
               style: TextStyle(color: p.muted, height: 1.6),
             ),
           ],
@@ -1674,6 +1679,76 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     ],
   );
+  Widget account() => Panel(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionTitle('Sua conta'),
+        Text(
+          s.email != null
+              ? 'Você entrou como ${s.email}.'
+              : s.demo
+              ? 'A demonstração não tem conta. Os dados fictícios somem ao sair.'
+              : 'Você entrou na sua conta.',
+          style: TextStyle(color: p.muted, height: 1.6),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          children: [
+            if (privacyPolicy case final page?)
+              PageLink('Política de privacidade', page),
+            ValueListenableBuilder<bool>(
+              valueListenable: widget.ads.privacyOptions,
+              builder: (context, shown, _) => shown
+                  ? TextButton.icon(
+                      onPressed: widget.ads.showPrivacyOptions,
+                      icon: const Icon(Icons.privacy_tip_outlined, size: 18),
+                      label: const Text('Privacidade dos anúncios'),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: saving || !s.canDeleteAccount ? null : deleteAccount,
+          style: OutlinedButton.styleFrom(foregroundColor: p.danger),
+          icon: const Icon(Icons.delete_forever_outlined, size: 20),
+          label: const Text('Excluir minha conta'),
+        ),
+      ],
+    ),
+  );
+  Future<void> deleteAccount() async {
+    final password = await showDialog<String>(
+      context: context,
+      builder: (_) => const DeleteAccountDialog(),
+    );
+    if (password == null || !mounted) return;
+    // Deleting ends the session and replaces this screen, so the message goes
+    // to the app's messenger, which outlives it.
+    final messenger = ScaffoldMessenger.of(context);
+    final palette = p;
+    setState(() => saving = true);
+    try {
+      await s.deleteAccount(password);
+      messenger.showSnackBar(const SnackBar(content: Text('Conta excluída.')));
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            cleanError(e),
+            style: TextStyle(color: palette.background),
+          ),
+          backgroundColor: palette.danger,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
   Future<void> invite() async {
     String? code;
     await perform(() async {

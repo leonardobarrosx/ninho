@@ -1,5 +1,8 @@
 {
   "API_URL": "https://YOUR-API.onrender.com",
   "SUPABASE_URL": "https://YOUR-PROJECT.supabase.co",
-  "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_REPLACE_ME"
+  "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_REPLACE_ME",
+  "SITE_URL": "https://YOUR-APP.vercel.app",
+  "ADMOB_APP_ID": "",
+  "ADMOB_APP_OPEN_ID": ""
 }
