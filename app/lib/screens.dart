@@ -1721,18 +1721,18 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   );
   Future<void> deleteAccount() async {
-    final ok = await showDialog<bool>(
+    final password = await showDialog<String>(
       context: context,
       builder: (_) => const DeleteAccountDialog(),
     );
-    if (ok != true || !mounted) return;
+    if (password == null || !mounted) return;
     // Deleting ends the session and replaces this screen, so the message goes
     // to the app's messenger, which outlives it.
     final messenger = ScaffoldMessenger.of(context);
     final palette = p;
     setState(() => saving = true);
     try {
-      await s.deleteAccount();
+      await s.deleteAccount(password);
       messenger.showSnackBar(const SnackBar(content: Text('Conta excluída.')));
     } catch (e) {
       messenger.showSnackBar(
