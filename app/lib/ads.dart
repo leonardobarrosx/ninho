@@ -159,23 +159,31 @@ class AdMobAds extends Ads {
     // Consent comes first, on every launch. Without an answer in time, the
     // choice Google saved on an earlier launch still applies.
     final consent = _backend.refreshConsent();
+    // The privacy options button follows Google's saved answer at once and
+    // the fresh one whenever it arrives, even after the launch deadline.
+    unawaited(_syncPrivacy());
+    unawaited(consent.then((_) => _syncPrivacy(), onError: (Object _) {}));
     final fresh =
         (coversLaunch ? await beforeDeadline(consent) : await consent) ?? false;
+    var personalized = false;
     if (fresh) {
-      _privacy.value = await _backend.privacyOptionsRequired();
-      if (await _backend.consentStatus() == ConsentStatus.required) {
+      final status = await _backend.consentStatus();
+      if (status == ConsentStatus.required) {
         // The message goes over the app, and no ad follows it.
         release();
         if (!blocked()) await _backend.askConsent();
-        _privacy.value = await _backend.privacyOptionsRequired();
+        await _syncPrivacy();
         return;
       }
+      // Personalized ads only after an answer in Google's consent message,
+      // whose choices the SDK then applies. Where there is no message, as in
+      // Brazil, only non-personalized ads are requested.
+      personalized = status == ConsentStatus.obtained;
     }
     // Past the deadline the app is already open, so no ad is even requested.
     if (!coversLaunch || expired || !await _backend.canRequestAds()) return;
 
-    // Without a fresh consent answer, only non-personalized ads are requested.
-    final loading = _backend.load(_unit, nonPersonalized: !fresh);
+    final loading = _backend.load(_unit, nonPersonalized: !personalized);
     final ad = await beforeDeadline(loading);
     if (ad == null || expired) {
       unawaited(loading.then((late) => late?.dispose()));
@@ -190,6 +198,14 @@ class AdMobAds extends Ads {
     await ad
         .show(onShown: _remember)
         .timeout(const Duration(minutes: 2), onTimeout: () {});
+  }
+
+  Future<void> _syncPrivacy() async {
+    try {
+      _privacy.value = await _backend.privacyOptionsRequired();
+    } catch (_) {
+      // Keeps the last known state; the next launch asks again.
+    }
   }
 
   void _remember() => unawaited(
@@ -245,7 +261,9 @@ class _GoogleAds implements AdBackend {
       await MobileAds.instance.updateRequestConfiguration(
         RequestConfiguration(maxAdContentRating: MaxAdContentRating.pg),
       );
-      MobileAds.instance.initialize().ignore();
+      // Ads load only after the SDK is ready; the launch deadline still bounds
+      // the wait, so a slow start just means no ad this time.
+      await MobileAds.instance.initialize();
     }
     final loaded = Completer<OpenAd?>();
     await AppOpenAd.load(
