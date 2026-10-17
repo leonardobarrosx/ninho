@@ -1,1 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="26" fill="#FF8A5C"/><ellipse cx="50" cy="44" rx="21" ry="26" fill="#FFF6EA"/><ellipse cx="37" cy="47" rx="4" ry="2.5" fill="#FFB3A1"/><ellipse cx="63" cy="47" rx="4" ry="2.5" fill="#FFB3A1"/><circle cx="43" cy="40" r="2.8" fill="#3A3248"/><circle cx="57" cy="40" r="2.8" fill="#3A3248"/><path d="M45 46Q50 51 55 46" fill="none" stroke="#3A3248" stroke-width="2.6" stroke-linecap="round"/><path d="M15 55Q50 67 85 55Q81 85 50 85Q19 85 15 55Z" fill="#3A3248"/><path d="M25 66Q50 75 75 66M32 76Q50 82 68 76" fill="none" stroke="#5E5470" stroke-width="3" stroke-linecap="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>Ninho</title>
+  <!-- Proposal A ("Abraço"), tuned for browser tabs: a larger mark than the app icon and a wider gap around the egg, so it still reads at 16 px. Source: branding/app-icon.svg -->
+  <rect width="256" height="256" rx="66" fill="#FF8A5C"/>
+  <g fill="#FFF6EA" transform="translate(12.8 14.4) scale(.9)">
+    <path d="M68 76C34 89 17 113 17 145C17 192 58 222 117 224C138 225 155 223 174 218C171 190 151 177 116 166C83 156 59 144 48 123C45 117 50 113 54 119C60 128 65 133 73 137C64 120 61 98 68 76Z"/>
+    <path d="M187 76C220 90 239 113 239 145C239 174 219 201 184 215C181 190 167 174 146 163C171 155 189 135 190 111C191 98 189 87 187 76Z"/>
+    <path d="M128 27C101 27 79 71 79 105C79 134 99 149 128 149C157 149 177 134 177 105C177 71 155 27 128 27Z" stroke="#FF8A5C" stroke-width="12"/>
+  </g>
+</svg>
