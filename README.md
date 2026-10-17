@@ -78,7 +78,7 @@ flutter build apk --debug --dart-define-from-file=config.local.json
 
 Saída: `app/build/app/outputs/flutter-apk/app-debug.apk`. É um instalador de testes, assinado com chave de desenvolvimento. A integração contínua também gera um APK de demonstração sem endpoints reais.
 
-Builds de debug mostram o anúncio de abertura de teste do Google. Para a Play, gere o pacote assinado com `flutter build appbundle --release --dart-define-from-file=config.local.json`. Antes, confirme o application ID definitivo e configure a chave de envio em `key.properties`; o projeto não inclui chave privada. O roteiro completo, com AdMob e os formulários do Play Console, está em `docs/play-store.md`. Não envie keystores, senhas nem IDs reais do AdMob ao Git.
+Builds de debug mostram o anúncio de abertura de teste do Google. Para a Play, gere o pacote assinado com `flutter build appbundle --release --dart-define-from-file=config.local.json`. O application ID é `br.com.ninho.app` e não pode mudar depois do primeiro envio. Configure a chave de envio em `key.properties`; o projeto não inclui chave privada. O roteiro completo, com AdMob e os formulários do Play Console, está em `docs/play-store.md`. Não envie keystores, senhas nem IDs reais do AdMob ao Git.
 
 ## Segurança e dados
 

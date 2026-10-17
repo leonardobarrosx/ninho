@@ -39,7 +39,7 @@ if (wantsRelease && adMobAppId.isEmpty()) {
 }
 
 android {
-    namespace = "br.com.ninho.ninho"
+    namespace = "br.com.ninho.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -50,7 +50,7 @@ android {
 
     defaultConfig {
         // The application ID identifies the app on Google Play and cannot change after the first upload.
-        applicationId = "br.com.ninho.ninho"
+        applicationId = "br.com.ninho.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

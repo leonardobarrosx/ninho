@@ -1,4 +1,4 @@
-package br.com.ninho.ninho
+package br.com.ninho.app
 
 import io.flutter.embedding.android.FlutterActivity
 
