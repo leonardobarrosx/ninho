@@ -481,6 +481,33 @@ class Store extends ChangeNotifier {
 
 String cleanError(Object e) => e.toString().replaceFirst('Exception: ', '');
 
+/// A sign-in, sign-up or password failure in Portuguese. Supabase Auth
+/// answers in English, so its error code picks the text. Anything that is
+/// not an answer from Auth reads as a connection problem.
+String authError(Object e) {
+  if (e is! AuthException || e is AuthRetryableFetchException) {
+    return 'Não foi possível conectar. Tente novamente.';
+  }
+  return switch (e.code) {
+    'invalid_credentials' => 'E-mail ou senha incorretos.',
+    'email_not_confirmed' =>
+      'Confirme seu e-mail pelo link que enviamos e tente de novo.',
+    'user_already_exists' || 'email_exists' =>
+      'Já existe uma conta com este e-mail. Entre com sua senha.',
+    'weak_password' => 'Escolha uma senha mais forte, com letras e números.',
+    'same_password' => 'Use uma senha diferente da atual.',
+    'email_address_invalid' ||
+    'validation_failed' => 'Confira o e-mail digitado.',
+    'signup_disabled' => 'Novos cadastros estão fechados no momento.',
+    'over_email_send_rate_limit' || 'over_request_rate_limit' =>
+      'Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.',
+    'session_expired' ||
+    'session_not_found' ||
+    'refresh_token_not_found' => 'Sua sessão expirou. Entre de novo.',
+    _ => 'Não foi possível concluir. Tente novamente.',
+  };
+}
+
 String _errorText(String body) {
   try {
     final result = jsonDecode(body);

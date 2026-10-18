@@ -7,7 +7,8 @@ String decimal(num value, {int digits = 3}) =>
     NumberFormat('#,##0.${'#' * digits}', 'pt_BR').format(value);
 String dateText(String? value) => value == null || value.isEmpty
     ? 'Sem data'
-    : DateFormat('dd/MM/yyyy').format(DateTime.parse(value));
+    : dayText(DateTime.parse(value));
+String dayText(DateTime date) => DateFormat('dd/MM/yyyy').format(date);
 String iso(DateTime date) => DateFormat('yyyy-MM-dd').format(date);
 int number(Json row, String key) => (row[key] as num? ?? 0).toInt();
 int parseMoney(String input) {

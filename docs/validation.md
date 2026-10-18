@@ -1,4 +1,4 @@
-# Estado da validação — 17/10/2026
+# Estado da validação — 18/10/2026
 
 ## Executado
 
@@ -6,12 +6,25 @@
   - `flutter pub get` resolve as dependências; o `app/pubspec.lock` está versionado.
   - `dart format --output=none --set-exit-if-changed lib test` não altera nenhum arquivo.
   - `flutter analyze` termina sem nenhum aviso.
-  - `flutter test` passa os 34 testes:
+  - `flutter test` passa os 50 testes:
     - 7 de domínio.
-    - 4 de interface: a demonstração percorre as seis abas no celular nos temas claro e escuro, a visão geral no desktop, e o seletor troca o tema e o salva.
+    - 11 de interface:
+      - A demonstração percorre as abas no celular nos temas claro e escuro, abre Família pelo menu da conta e volta.
+      - Em 360 px, a barra de baixo tem cinco abas, sem estouro de layout.
+      - Cada aba guarda a própria rolagem.
+      - O botão voltar leva de Família à aba anterior e de qualquer aba à visão geral.
+      - O menu da conta troca o tema e o salva, e o seletor da tela de entrada também.
+      - Pagar uma conta mostra "Pago" e oferece desfazer no aviso.
+      - Saúde separa os compromissos pendentes dos realizados.
+      - Leitor de tela: o cartão de resumo e a linha de lançamento são lidos como um item, os títulos são cabeçalhos, o selo DEMO é texto e os botões dizem o nome do lançamento.
+      - No desktop, a barra lateral mantém Família.
+    - 7 de formulário: datas em dd/mm/aaaa salvas em ISO, data opcional que pode ser apagada, data obrigatória, voltar com alterações pede confirmação, voltar sem alterações e Cancelar fecham na hora, um toque fora de um formulário curto não o fecha, e a tecla de ação do teclado passa para o próximo campo.
+    - 2 de entrada: as mensagens de erro do Supabase Auth saem em português, e o formulário de login tem preenchimento automático, botão de mostrar a senha e erro em vermelho anunciado pelo leitor de tela.
+    - Três correções quebradas de propósito (sem a rolagem por aba, sem o nome do lançamento no botão Pagar e com o toque fora fechando o formulário) fizeram os testes correspondentes falharem.
     - 16 do anúncio de abertura, com um substituto dos SDKs do Google: consentimento a cada abertura, instalação nova sem anúncio, limite de 4 horas, anúncio personalizado só com resposta atualizada na mensagem do Google, só não personalizado onde não há mensagem (como no Brasil), mensagem de consentimento no lugar do anúncio, falha e atraso do anúncio, consulta de consentimento sem resposta, recuperação de senha, opções de privacidade (inclusive quando o Google não responde) e erro do SDK. Três regras quebradas de propósito (ignorar a recuperação de senha, ignorar o prazo e personalizar sem consentimento atualizado) fizeram os testes correspondentes falharem.
     - 7 de conta e abertura: a capa segura o app até o fim do fluxo do anúncio; a demonstração não exclui conta; a exclusão só é confirmada com a senha, num campo oculto, e a senha chega ao `Store`, nos temas claro e escuro; cancelar mantém a conta; uma senha errada mostra o motivo.
   - `flutter build web --release` gera o build de demonstração com `privacidade.html`, `excluir-conta.html` e `pages.css`.
+  - O build de demonstração foi conferido com o Playwright no Edge, em 390, 360 e 1280 px, nos temas claro e escuro: menu da conta, Família com voltar, contas pagas e desfazer em Finanças, formulário em tela cheia, Saúde e o gráfico por categoria. A árvore de acessibilidade do Flutter foi conferida em Finanças.
 - Logo Abraço (proposta A), aplicada no app, na web e no Android:
   - Os testes de interface desenham a `NinhoLogo` nova.
   - Uma renderização do Flutter em 128, 96, 64, 38 e 30 px foi conferida nos fundos claro e escuro.
