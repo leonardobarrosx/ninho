@@ -55,7 +55,10 @@ Future<void> openAccount(
     await tester.tap(find.text('Explorar demonstração'));
     await tester.pumpAndSettle();
   }
-  await tester.tap(find.text('Família').last);
+  // On a phone, the account lives in Família, opened from the account menu.
+  await tester.tap(find.byTooltip('Conta e ajustes'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Família e conta'));
   await tester.pumpAndSettle();
   await tester.ensureVisible(find.text('Excluir minha conta'));
   await tester.pumpAndSettle();

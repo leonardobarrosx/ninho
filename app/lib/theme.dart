@@ -88,6 +88,18 @@ class Palette extends ThemeExtension<Palette> {
 
   List<Color> get accents => [brand, mint, sky, indigo, sunny];
 
+  /// Expense category colors as (accent, tint, icon on the tint), from the
+  /// largest category. Mint is left out because it marks money coming in.
+  /// The brand orange is too faint on its tint for an icon, so its icons use
+  /// the brand text color. Smaller categories share the neutral last one.
+  List<(Color, Color, Color)> get categories => [
+    (brand, brandTint, brandText),
+    (sky, skyTint, sky),
+    (indigo, indigoTint, indigo),
+    (sunny, sunnyTint, sunny),
+    (muted, surfaceAlt, muted),
+  ];
+
   @override
   Palette copyWith() => this;
 
@@ -208,6 +220,15 @@ ThemeData buildTheme(Palette p, Brightness brightness) {
         TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: p.ink),
       ),
     ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: SegmentedButton.styleFrom(
+        foregroundColor: p.ink,
+        selectedForegroundColor: p.ink,
+        selectedBackgroundColor: p.brandTint,
+        side: BorderSide(color: p.border),
+        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    ),
     chipTheme: ChipThemeData(
       backgroundColor: p.surface,
       selectedColor: p.brandTint,
@@ -230,6 +251,7 @@ ThemeData buildTheme(Palette p, Brightness brightness) {
       behavior: SnackBarBehavior.floating,
       backgroundColor: p.ink,
       contentTextStyle: TextStyle(color: p.background),
+      actionTextColor: p.brandTint,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(

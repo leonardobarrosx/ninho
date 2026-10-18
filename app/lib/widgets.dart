@@ -54,6 +54,29 @@ class PageLink extends StatelessWidget {
   );
 }
 
+/// The eye button at the end of a password field.
+class PasswordToggle extends StatelessWidget {
+  final bool hidden;
+  final VoidCallback onPressed;
+  const PasswordToggle({
+    super.key,
+    required this.hidden,
+    required this.onPressed,
+  });
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: hidden ? 'Mostrar senha' : 'Ocultar senha',
+    onPressed: onPressed,
+    icon: Icon(
+      hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+    ),
+  );
+}
+
+/// A card that groups content. Screen readers go through its pieces one by
+/// one, in reading order, instead of reading the whole card as one block. A
+/// list row wrapped in `Semantics(container: true)` reads as one item, with
+/// its buttons after it.
 class Panel extends StatelessWidget {
   final Widget child;
   final EdgeInsets padding;
@@ -64,6 +87,7 @@ class Panel extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) => Card(
+    semanticContainer: false,
     child: Padding(padding: padding, child: child),
   );
 }
@@ -85,13 +109,17 @@ class Heading extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: b.maxWidth < 600 ? 26 : 32,
-                      fontWeight: FontWeight.w800,
-                      color: p.ink,
-                      letterSpacing: -.8,
+                  child: Semantics(
+                    container: true,
+                    header: true,
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: b.maxWidth < 600 ? 26 : 32,
+                        fontWeight: FontWeight.w800,
+                        color: p.ink,
+                        letterSpacing: -.8,
+                      ),
                     ),
                   ),
                 ),
@@ -110,7 +138,8 @@ class Heading extends StatelessWidget {
 }
 
 /// A summary card. Without [color] it is a plain surface; with it, a colored
-/// block whose text uses [onColor] (or the theme ink on light tints).
+/// block whose text uses [onColor] (or the theme ink on light tints). Screen
+/// readers read it as one item: label, value and note.
 class Metric extends StatelessWidget {
   final String label, value, note;
   final IconData icon;
@@ -130,58 +159,84 @@ class Metric extends StatelessWidget {
     final p = Palette.of(context);
     final strong = onColor ?? p.ink;
     final soft = onColor ?? p.muted;
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: color ?? p.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: color == null ? Border.all(color: p.border) : null,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(color: soft, fontWeight: FontWeight.w600),
+    return MergeSemantics(
+      child: Container(
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: color ?? p.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: color == null ? Border.all(color: p.border) : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(color: soft, fontWeight: FontWeight.w600),
+                  ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: strong.withValues(alpha: .08),
-                  shape: BoxShape.circle,
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: strong.withValues(alpha: .08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    icon,
+                    color: onColor ?? accent ?? p.brand,
+                    size: 20,
+                  ),
                 ),
-                child: Icon(
-                  icon,
-                  color: onColor ?? accent ?? p.brand,
-                  size: 20,
+              ],
+            ),
+            const SizedBox(height: 14),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.7,
+                  color: strong,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -.7,
-                color: strong,
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(note, style: TextStyle(color: soft, fontSize: 12)),
-        ],
+            const SizedBox(height: 8),
+            Text(note, style: TextStyle(color: soft, fontSize: 12)),
+          ],
+        ),
       ),
     );
   }
+}
+
+/// A small colored label, such as a priority. It reads as plain text, not as
+/// a control.
+class Tag extends StatelessWidget {
+  final String text;
+  final Color color;
+  const Tag(this.text, {super.key, required this.color});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(99),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: Palette.of(context).ink,
+      ),
+    ),
+  );
 }
 
 class MetricGrid extends StatelessWidget {
@@ -276,12 +331,16 @@ class SectionTitle extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
-              color: p.ink,
+          Semantics(
+            container: true,
+            header: true,
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                color: p.ink,
+              ),
             ),
           ),
           if (caption != null)

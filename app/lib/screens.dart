@@ -28,6 +28,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int page = 0;
+  // The tab that Família goes back to.
+  int lastTab = 0;
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
   bool saving = false;
   String filter = 'all';
@@ -51,6 +53,9 @@ class _HomeScreenState extends State<HomeScreen> {
     Icons.favorite_rounded,
     Icons.people_alt_rounded,
   ];
+  // Família is the last page. Phones open it from the account menu, so the
+  // bottom bar keeps five tabs.
+  static const familyPage = 5;
   @override
   void initState() {
     super.initState();
@@ -67,14 +72,24 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) setState(() {});
   }
 
-  Future<void> perform(Future<void> Function() action) async {
-    if (saving) return;
+  /// Runs a change and says how it went: [done] on success, with an [undo]
+  /// button when the change can be reverted.
+  Future<void> perform(
+    Future<void> Function() action, {
+    String done = 'Atualizado.',
+    SnackBarAction? undo,
+  }) async {
+    // An undo tapped after leaving this screen has nothing left to change.
+    if (saving || !mounted) return;
     setState(() => saving = true);
     try {
       await action();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(s.error == null ? 'Atualizado.' : s.error!)),
+          SnackBar(
+            content: Text(s.error ?? done),
+            action: s.error == null ? undo : null,
+          ),
         );
       }
     } catch (e) {
@@ -107,9 +122,19 @@ class _HomeScreenState extends State<HomeScreen> {
       help: help,
     );
     if (result != null) {
-      await perform(() => s.save(resource, result, id: row?['id'] as String?));
+      await perform(
+        () => s.save(resource, result, id: row?['id'] as String?),
+        done: row == null ? 'Registro adicionado.' : 'Alterações salvas.',
+      );
     }
   }
+
+  /// How a record is named in messages and screen reader labels.
+  String recordName(Json row) =>
+      (row['title'] ?? row['name']) as String? ??
+      (row['measured_at'] == null
+          ? 'registro'
+          : 'medida de ${dateText(row['measured_at'] as String)}');
 
   Future<void> remove(String resource, Json row) async {
     final ok = await showDialog<bool>(
@@ -117,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Excluir registro?'),
         content: Text(
-          'Excluir “${row['title'] ?? row['name'] ?? 'medida'}”? Esta ação também pode remover os registros vinculados e alterar os totais.',
+          'Excluir “${recordName(row)}”? Esta ação também pode remover os registros vinculados e alterar os totais.',
         ),
         actions: [
           TextButton(
@@ -132,238 +157,306 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     if (ok == true) {
-      await perform(() => s.remove(resource, row['id'] as String));
+      await perform(
+        () => s.remove(resource, row['id'] as String),
+        done: 'Registro excluído.',
+      );
     }
   }
 
-  Widget actions(String resource, Json row, VoidCallback onEdit) =>
-      PopupMenuButton<String>(
-        tooltip: 'Opções do registro',
-        enabled: !saving,
-        onSelected: (v) {
-          if (v == 'edit') {
-            onEdit();
-          } else {
-            remove(resource, row);
-          }
-        },
-        itemBuilder: (_) => [
-          const PopupMenuItem(value: 'edit', child: Text('Editar')),
-          const PopupMenuItem(value: 'delete', child: Text('Excluir')),
-        ],
-      );
+  /// The ⋮ menu of a record. [undo] adds an item that reverts its last
+  /// change, such as a payment.
+  Widget actions(
+    String resource,
+    Json row,
+    VoidCallback onEdit, {
+    (String, VoidCallback)? undo,
+  }) => PopupMenuButton<String>(
+    tooltip: 'Opções de ${recordName(row)}',
+    enabled: !saving,
+    onSelected: (v) {
+      switch (v) {
+        case 'edit':
+          onEdit();
+        case 'undo':
+          undo!.$2();
+        default:
+          remove(resource, row);
+      }
+    },
+    itemBuilder: (_) => [
+      const PopupMenuItem(value: 'edit', child: Text('Editar')),
+      if (undo != null) PopupMenuItem(value: 'undo', child: Text(undo.$1)),
+      const PopupMenuItem(value: 'delete', child: Text('Excluir')),
+    ],
+  );
   Widget add(String label, VoidCallback onTap) => FilledButton.icon(
     onPressed: saving ? null : onTap,
     icon: const Icon(Icons.add, size: 18),
     label: Text(label),
   );
   void go(int i) => setState(() {
+    if (page != familyPage) lastTab = page;
     page = i;
     search = '';
     filter = 'all';
   });
+
+  /// The back button: from Família to the tab it was opened from, from any
+  /// other tab to Visão geral, and from there out of the app.
+  void back() => go(page == familyPage ? lastTab : 0);
+
+  /// Family and account, data refresh, theme and sign-out in one menu, so the
+  /// header fits a narrow phone.
+  Widget accountMenu() => PopupMenuButton<Object>(
+    tooltip: 'Conta e ajustes',
+    icon: const Icon(Icons.account_circle_outlined),
+    onSelected: (v) {
+      switch (v) {
+        case NinhoTheme theme:
+          widget.onTheme(theme);
+        case 'family':
+          go(familyPage);
+        case 'refresh':
+          s.refresh();
+        case 'logout':
+          perform(widget.onLogout);
+      }
+    },
+    itemBuilder: (_) => [
+      menuItem('family', Icons.people_alt_outlined, 'Família e conta'),
+      menuItem(
+        'refresh',
+        Icons.refresh,
+        'Atualizar dados',
+        enabled: !s.loading && !saving,
+      ),
+      const PopupMenuDivider(),
+      for (final theme in NinhoTheme.values)
+        CheckedPopupMenuItem<Object>(
+          value: theme,
+          checked: theme == widget.theme,
+          child: Text('Tema ${themeLabels[theme]!.toLowerCase()}'),
+        ),
+      const PopupMenuDivider(),
+      menuItem(
+        'logout',
+        Icons.logout,
+        s.demo ? 'Sair da demonstração' : 'Sair',
+        enabled: !saving,
+      ),
+    ],
+  );
+
+  // Lined up with the checked theme items, which are list tiles too.
+  PopupMenuItem<Object> menuItem(
+    String value,
+    IconData icon,
+    String label, {
+    bool enabled = true,
+  }) => PopupMenuItem(
+    value: value,
+    enabled: enabled,
+    child: ListTile(enabled: enabled, leading: Icon(icon), title: Text(label)),
+  );
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 1050;
-    return Scaffold(
-      bottomNavigationBar: wide
-          ? null
-          : NavigationBar(
-              selectedIndex: page,
-              onDestinationSelected: go,
-              height: 76,
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-              destinations: [
-                for (var i = 0; i < labels.length; i++)
-                  NavigationDestination(
-                    icon: Icon(icons[i], size: 22),
-                    label: labels[i],
-                  ),
-              ],
-            ),
-      body: SafeArea(
-        child: Row(
-          children: [
-            if (wide)
-              Material(
-                color: p.surface,
-                shape: Border(right: BorderSide(color: p.border)),
-                child: SizedBox(
-                  width: 210,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 30, 20, 32),
-                        child: Row(
-                          children: [
-                            const NinhoLogo(size: 38),
-                            const SizedBox(width: 10),
-                            Flexible(
-                              child: Text(
-                                'Ninho',
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 27,
-                                  fontWeight: FontWeight.w800,
-                                  color: p.ink,
+    // On a phone, Família opens over the tabs, with a way back.
+    final sub = !wide && page == familyPage;
+    return PopScope(
+      canPop: page == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) back();
+      },
+      child: Scaffold(
+        bottomNavigationBar: wide || sub
+            ? null
+            : NavigationBar(
+                selectedIndex: page,
+                onDestinationSelected: go,
+                height: 76,
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                destinations: [
+                  for (var i = 0; i < familyPage; i++)
+                    NavigationDestination(
+                      icon: Icon(icons[i], size: 22),
+                      label: labels[i],
+                    ),
+                ],
+              ),
+        body: SafeArea(
+          child: Row(
+            children: [
+              if (wide)
+                Material(
+                  color: p.surface,
+                  shape: Border(right: BorderSide(color: p.border)),
+                  child: SizedBox(
+                    width: 210,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(22, 30, 20, 32),
+                          child: Row(
+                            children: [
+                              const NinhoLogo(size: 38),
+                              const SizedBox(width: 10),
+                              Flexible(
+                                child: Text(
+                                  'Ninho',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 27,
+                                    fontWeight: FontWeight.w800,
+                                    color: p.ink,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      for (var i = 0; i < labels.length; i++)
+                        for (var i = 0; i < labels.length; i++)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 4,
+                            ),
+                            child: ListTile(
+                              shape: const StadiumBorder(),
+                              selected: i == page,
+                              selectedTileColor: p.brandTint,
+                              selectedColor: p.ink,
+                              leading: Icon(icons[i], size: 21),
+                              title: Text(
+                                labels[i],
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              onTap: () => go(i),
+                            ),
+                          ),
+                        const Spacer(),
                         Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 4,
-                          ),
-                          child: ListTile(
-                            shape: const StadiumBorder(),
-                            selected: i == page,
-                            selectedTileColor: p.brandTint,
-                            selectedColor: p.ink,
-                            leading: Icon(icons[i], size: 21),
-                            title: Text(
-                              labels[i],
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            onTap: () => go(i),
-                          ),
-                        ),
-                      const Spacer(),
-                      Padding(
-                        padding: const EdgeInsets.all(22),
-                        child: Text(
-                          'Um passo de cada vez.\nTudo no seu tempo.',
-                          style: TextStyle(
-                            color: p.muted,
-                            height: 1.6,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            Expanded(
-              child: Column(
-                children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: wide ? 32 : 18,
-                      vertical: 16,
-                    ),
-                    child: Row(
-                      children: [
-                        if (!wide)
-                          const Padding(
-                            padding: EdgeInsets.only(right: 10),
-                            child: NinhoLogo(size: 30),
-                          ),
-                        Expanded(
+                          padding: const EdgeInsets.all(22),
                           child: Text(
-                            s.familyName,
+                            'Um passo de cada vez.\nTudo no seu tempo.',
                             style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: p.ink,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (s.demo)
-                          const Chip(
-                            label: Text(
-                              'DEMO',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              color: p.muted,
+                              height: 1.6,
+                              fontSize: 13,
                             ),
                           ),
-                        ThemeButton(
-                          value: widget.theme,
-                          onChanged: widget.onTheme,
-                        ),
-                        IconButton(
-                          onPressed: s.loading || saving
-                              ? null
-                              : () => s.refresh(),
-                          tooltip: 'Atualizar dados',
-                          icon: const Icon(Icons.refresh, size: 21),
-                        ),
-                        IconButton(
-                          onPressed: saving
-                              ? null
-                              : () => perform(widget.onLogout),
-                          tooltip: 'Sair',
-                          icon: const Icon(Icons.logout, size: 21),
                         ),
                       ],
                     ),
                   ),
-                  if (s.demo)
+                ),
+              Expanded(
+                child: Column(
+                  children: [
                     Container(
-                      width: double.infinity,
-                      color: p.sunnyTint,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 20,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: wide ? 32 : 18,
+                        vertical: 16,
                       ),
-                      child: Text(
-                        'Dados fictícios. Alterações desta demonstração são temporárias.',
-                        style: TextStyle(fontSize: 12, color: p.ink),
-                      ),
-                    ),
-                  if (saving || s.loading)
-                    const LinearProgressIndicator(minHeight: 2),
-                  Expanded(
-                    child: s.loading && s.households.isEmpty
-                        ? const Center(child: CircularProgressIndicator())
-                        : s.error != null
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(s.error!, textAlign: TextAlign.center),
-                                  const SizedBox(height: 16),
-                                  FilledButton(
-                                    onPressed: () => s.refresh(),
-                                    child: const Text('Tentar novamente'),
-                                  ),
-                                ],
-                              ),
+                      child: Row(
+                        children: [
+                          if (sub)
+                            IconButton(
+                              onPressed: back,
+                              tooltip: 'Voltar',
+                              icon: const Icon(Icons.arrow_back),
+                            )
+                          else if (!wide)
+                            const Padding(
+                              padding: EdgeInsets.only(right: 10),
+                              child: NinhoLogo(size: 30),
                             ),
-                          )
-                        : s.householdId == null
-                        ? onboarding()
-                        : Align(
-                            alignment: Alignment.topCenter,
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 1440),
-                              child: SingleChildScrollView(
-                                padding: EdgeInsets.fromLTRB(
-                                  wide ? 32 : 18,
-                                  20,
-                                  wide ? 32 : 18,
-                                  40,
-                                ),
-                                child: content(),
+                          Expanded(
+                            child: Text(
+                              sub ? 'Família e conta' : s.familyName,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: p.ink,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                  ),
-                ],
+                          if (s.demo) Tag('DEMO', color: p.sunnyTint),
+                          accountMenu(),
+                        ],
+                      ),
+                    ),
+                    if (s.demo)
+                      Container(
+                        width: double.infinity,
+                        color: p.sunnyTint,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 20,
+                        ),
+                        child: Text(
+                          'Dados fictícios. Alterações desta demonstração são temporárias.',
+                          style: TextStyle(fontSize: 12, color: p.ink),
+                        ),
+                      ),
+                    if (saving || s.loading)
+                      const LinearProgressIndicator(
+                        minHeight: 2,
+                        semanticsLabel: 'Atualizando',
+                      ),
+                    Expanded(
+                      child: s.loading && s.households.isEmpty
+                          ? const Center(child: CircularProgressIndicator())
+                          : s.error != null
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(s.error!, textAlign: TextAlign.center),
+                                    const SizedBox(height: 16),
+                                    FilledButton(
+                                      onPressed: () => s.refresh(),
+                                      child: const Text('Tentar novamente'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : s.householdId == null
+                          ? onboarding()
+                          : Align(
+                              alignment: Alignment.topCenter,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 1440,
+                                ),
+                                child: SingleChildScrollView(
+                                  // Each page keeps its own scroll position,
+                                  // instead of opening where the last one was.
+                                  key: PageStorageKey(page),
+                                  padding: EdgeInsets.fromLTRB(
+                                    wide ? 32 : 18,
+                                    20,
+                                    wide ? 32 : 18,
+                                    40,
+                                  ),
+                                  child: content(),
+                                ),
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -426,6 +519,7 @@ class _HomeScreenState extends State<HomeScreen> {
         .where((g) => number(g, 'acquired') >= number(g, 'quantity'))
         .length;
     final upcoming = m.items.where((e) => !e.paid && !e.income).toList();
+    final colors = categoryIndex(m);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -491,7 +585,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: TextStyle(color: p.muted),
                       ),
                     ),
-                  for (final e in upcoming.take(5)) entryTile(e, compact: true),
+                  for (final e in upcoming.take(5))
+                    entryTile(e, compact: true, colors: colors),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton(
@@ -556,14 +651,35 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget categoryBars(MonthSummary m) {
-    final cats = <String, int>{};
+  /// The month's expense categories with their totals, largest first. The
+  /// order picks each category's color, so the chart and the entry rows of
+  /// the month match.
+  List<MapEntry<String, int>> expenseCategories(MonthSummary m) {
+    final totals = <String, int>{};
     for (final e in m.items.where((e) => !e.income)) {
       final name = e.entry['category'] as String;
-      cats[name] = (cats[name] ?? 0) + e.amount;
+      totals[name] = (totals[name] ?? 0) + e.amount;
     }
-    final sorted = cats.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    return totals.entries.toList()..sort(
+      (a, b) => a.value == b.value
+          ? a.key.compareTo(b.key)
+          : b.value.compareTo(a.value),
+    );
+  }
+
+  /// Each expense category's place in the palette's category colors.
+  Map<String, int> categoryIndex(MonthSummary m) {
+    final last = p.categories.length - 1;
+    return {
+      for (final (i, e) in expenseCategories(m).indexed)
+        e.key: i < last ? i : last,
+    };
+  }
+
+  Widget categoryBars(MonthSummary m) {
+    final sorted = expenseCategories(m);
+    final colors = categoryIndex(m);
+    final total = m.sum(false);
     return Column(
       children: [
         if (sorted.isEmpty)
@@ -571,43 +687,54 @@ class _HomeScreenState extends State<HomeScreen> {
             'Cadastre despesas para visualizar a distribuição.',
             style: TextStyle(color: p.muted),
           ),
-        for (final (i, e) in sorted.indexed)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 17),
-            child: Column(
-              children: [
-                Row(
+        for (final e in sorted)
+          // One item for screen readers: the category, its total and share.
+          Semantics(
+            container: true,
+            label:
+                '${e.key}: ${money(e.value)}, ${total == 0 ? 0 : (e.value * 100 / total).round()}% das despesas previstas',
+            child: ExcludeSemantics(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 17),
+                child: Column(
                   children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      margin: const EdgeInsets.only(right: 8),
-                      decoration: BoxDecoration(
-                        color: p.accents[i % p.accents.length],
-                        shape: BoxShape.circle,
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            color: p.categories[colors[e.key]!].$1,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            e.key,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                        Text(
+                          money(e.value),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                    Expanded(
-                      child: Text(e.key, style: const TextStyle(fontSize: 13)),
-                    ),
-                    Text(
-                      money(e.value),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(
+                      value: total == 0 ? 0 : e.value / total,
+                      minHeight: 8,
+                      borderRadius: BorderRadius.circular(99),
+                      backgroundColor: p.surfaceAlt,
+                      color: p.categories[colors[e.key]!].$1,
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(
-                  value: m.sum(false) == 0 ? 0 : e.value / m.sum(false),
-                  minHeight: 8,
-                  borderRadius: BorderRadius.circular(99),
-                  backgroundColor: p.surfaceAlt,
-                  color: p.accents[i % p.accents.length],
-                ),
-              ],
+              ),
             ),
           ),
       ],
@@ -622,15 +749,18 @@ class _HomeScreenState extends State<HomeScreen> {
       'entries',
       row == null ? 'Novo lançamento' : 'Editar lançamento',
       [
-        const FieldSpec('title', 'Descrição'),
-        const FieldSpec('category', 'Categoria', max: 60),
-        if (!hasPaid) ...[
+        if (!hasPaid)
           const FieldSpec(
             'kind',
             'Tipo',
             options: {'income': 'Receita', 'expense': 'Despesa'},
+            segmented: true,
           ),
+        const FieldSpec('title', 'Descrição'),
+        if (!hasPaid)
           const FieldSpec('amount_cents', 'Valor (R\$)', type: 'money', min: 1),
+        const FieldSpec('category', 'Categoria', max: 60),
+        if (!hasPaid) ...[
           const FieldSpec(
             'start_date',
             'Data / primeiro vencimento',
@@ -640,6 +770,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'recurrence',
             'Repetição',
             options: {'once': 'Somente uma vez', 'monthly': 'Todo mês'},
+            segmented: true,
           ),
         ],
         const FieldSpec(
@@ -665,6 +796,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget finances() {
     final m = summary;
+    final colors = categoryIndex(m);
     final list = m.items
         .where(
           (e) =>
@@ -720,7 +852,11 @@ class _HomeScreenState extends State<HomeScreen> {
             onAdd: () => editEntry(),
           )
         else
-          Panel(child: Column(children: [for (final e in list) entryTile(e)])),
+          Panel(
+            child: Column(
+              children: [for (final e in list) entryTile(e, colors: colors)],
+            ),
+          ),
         const SizedBox(height: 28),
         Row(
           children: [
@@ -747,14 +883,17 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               children: [
                 for (final d in s.rows('debts'))
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(d['title'] as String),
-                    subtitle: Text(
-                      '${d['creditor']} · Parcela ${money(number(d, 'installment_cents'))}\nSaldo devedor: ${money(number(d, 'balance_cents'))}',
+                  Semantics(
+                    container: true,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(d['title'] as String),
+                      subtitle: Text(
+                        '${d['creditor']} · Parcela ${money(number(d, 'installment_cents'))}\nSaldo devedor: ${money(number(d, 'balance_cents'))}',
+                      ),
+                      isThreeLine: true,
+                      trailing: actions('debts', d, () => editDebt(d)),
                     ),
-                    isThreeLine: true,
-                    trailing: actions('debts', d, () => editDebt(d)),
                   ),
               ],
             ),
@@ -763,85 +902,137 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget entryTile(Occurrence e, {bool compact = false}) {
+  /// One occurrence of an entry. A paid one shows its state; undoing the
+  /// payment is in its ⋮ menu and in the message right after paying.
+  /// Expenses take their category's color from [colors].
+  Widget entryTile(
+    Occurrence e, {
+    bool compact = false,
+    Map<String, int> colors = const {},
+  }) {
     final overdue =
-        !e.paid &&
-        e.date.isBefore(
-          DateTime(
-            DateTime.now().year,
-            DateTime.now().month,
-            DateTime.now().day,
-          ),
-        );
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: e.income ? p.mintTint : p.indigoTint,
-              shape: BoxShape.circle,
+        !e.paid && e.date.isBefore(DateUtils.dateOnly(DateTime.now()));
+    final title = e.entry['title'] as String;
+    final color = colors[e.entry['category']];
+    final (icon, tint) = e.income
+        ? (p.mint, p.mintTint)
+        : color == null
+        ? (p.indigo, p.indigoTint)
+        : (p.categories[color].$3, p.categories[color].$2);
+    final verb = e.income ? 'Receber' : 'Pagar';
+    // A row is one item for screen readers, with its buttons after it.
+    return Semantics(
+      container: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: tint, shape: BoxShape.circle),
+              child: Icon(
+                e.income ? Icons.south_west_rounded : Icons.north_east_rounded,
+                size: 19,
+                color: icon,
+                semanticLabel: e.income ? 'Receita' : 'Despesa',
+              ),
             ),
-            child: Icon(
-              e.income ? Icons.south_west_rounded : Icons.north_east_rounded,
-              size: 19,
-              color: e.income ? p.mint : p.indigo,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${DateFormat('dd/MM').format(e.date)} · ${e.entry['category']}${overdue ? ' · Em atraso' : ''}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: overdue ? p.danger : p.muted,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  e.entry['title'] as String,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  money(e.amount),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '${DateFormat('dd/MM').format(e.date)} · ${e.entry['category']}${overdue ? ' · Em atraso' : ''}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: overdue ? p.danger : p.muted,
+                if (!compact && e.paid)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.check_circle_rounded,
+                          size: 16,
+                          color: p.mint,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          e.income ? 'Recebido' : 'Pago',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: p.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (!compact)
+                  TextButton(
+                    onPressed: saving ? null : () => settle(e, true),
+                    child: Text(
+                      verb,
+                      semanticsLabel: '$verb $title',
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
-                ),
               ],
             ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                money(e.amount),
-                style: const TextStyle(fontWeight: FontWeight.w700),
+            if (!compact)
+              actions(
+                'entries',
+                e.entry,
+                () => editEntry(e.entry),
+                undo: e.paid
+                    ? (
+                        e.income
+                            ? 'Desfazer recebimento'
+                            : 'Desfazer pagamento',
+                        () => settle(e, false),
+                      )
+                    : null,
               ),
-              if (!compact)
-                TextButton(
-                  onPressed: saving
-                      ? null
-                      : () => perform(
-                          () => s.rpc('settle_entry', {
-                            'p_entry_id': e.entry['id'],
-                            'p_occurrence': iso(e.date),
-                            'p_paid': !e.paid,
-                          }),
-                        ),
-                  child: Text(
-                    e.paid
-                        ? 'Desfazer baixa'
-                        : e.income
-                        ? 'Receber'
-                        : 'Pagar',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-            ],
-          ),
-          if (!compact) actions('entries', e.entry, () => editEntry(e.entry)),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  /// Marks one occurrence as paid or received, or undoes that. Paying offers
+  /// an undo in the message.
+  Future<void> settle(Occurrence e, bool paid) {
+    final what = e.income ? 'Recebimento' : 'Pagamento';
+    return perform(
+      () => s.rpc('settle_entry', {
+        'p_entry_id': e.entry['id'],
+        'p_occurrence': iso(e.date),
+        'p_paid': paid,
+      }),
+      done: paid ? '$what registrado.' : '$what desfeito.',
+      undo: paid
+          ? SnackBarAction(label: 'Desfazer', onPressed: () => settle(e, false))
+          : null,
     );
   }
 
@@ -983,18 +1174,13 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             children: [
-              Chip(
-                label: Text(
-                  priorityLabels[g['priority']] ?? 'Meta',
-                  style: TextStyle(fontSize: 11, color: p.ink),
-                ),
-                backgroundColor: switch (g['priority']) {
+              Tag(
+                priorityLabels[g['priority']] ?? 'Meta',
+                color: switch (g['priority']) {
                   'comfort' => p.skyTint,
                   'optional' => p.indigoTint,
                   _ => p.brandTint,
                 },
-                side: BorderSide.none,
-                visualDensity: VisualDensity.compact,
               ),
               const Spacer(),
               actions('goals', g, () => editGoal(g)),
@@ -1020,6 +1206,8 @@ class _HomeScreenState extends State<HomeScreen> {
             minHeight: 8,
             borderRadius: BorderRadius.circular(99),
             backgroundColor: p.surfaceAlt,
+            semanticsLabel: 'Progresso da meta',
+            semanticsValue: '${(progress * 100).round()}%',
           ),
           const SizedBox(height: 12),
           Text(
@@ -1072,7 +1260,10 @@ class _HomeScreenState extends State<HomeScreen> {
           'Use R\$ 0 para presente ou reaproveitamento. Um valor pago será registrado uma única vez nas despesas do mês.',
     );
     if (data != null) {
-      await perform(() => s.rpc('buy_goal', {'p_goal_id': g['id'], ...data}));
+      await perform(
+        () => s.rpc('buy_goal', {'p_goal_id': g['id'], ...data}),
+        done: 'Aquisição registrada.',
+      );
     }
   }
 
@@ -1124,7 +1315,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }, reload: false);
       }
       await s.refresh();
-    });
+    }, done: 'Checklist adicionado.');
   }
 
   void editBaby([Json? row]) => edit(
@@ -1285,16 +1476,19 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               children: [
                 for (final r in measures)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(dateText(r['measured_at'] as String)),
-                    subtitle: Text(
-                      '${r['weight_grams'] == null ? 'Peso não informado' : '${decimal(number(r, 'weight_grams') / 1000)} kg'} · ${r['length_mm'] == null ? 'Comprimento não informado' : '${decimal(number(r, 'length_mm') / 10)} cm'}',
-                    ),
-                    trailing: actions(
-                      'measurements',
-                      r,
-                      () => editMeasure(selected['id'] as String, r),
+                  Semantics(
+                    container: true,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(dateText(r['measured_at'] as String)),
+                      subtitle: Text(
+                        '${r['weight_grams'] == null ? 'Peso não informado' : '${decimal(number(r, 'weight_grams') / 1000)} kg'} · ${r['length_mm'] == null ? 'Comprimento não informado' : '${decimal(number(r, 'length_mm') / 10)} cm'}',
+                      ),
+                      trailing: actions(
+                        'measurements',
+                        r,
+                        () => editMeasure(selected['id'] as String, r),
+                      ),
                     ),
                   ),
               ],
@@ -1346,6 +1540,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ...result,
         'baby_id': id,
       }, id: row?['id'] as String?),
+      done: row == null ? 'Medida registrada.' : 'Alterações salvas.',
     );
   }
 
@@ -1378,12 +1573,17 @@ class _HomeScreenState extends State<HomeScreen> {
     help:
         'Registre consultas, exames, vacinas e medicamentos conforme a orientação recebida. O app não prescreve doses nem interpreta resultados. Esses dados ficam só com a sua família e nunca são usados em anúncios.',
   );
+
+  /// Pending events first, the nearest on top, so the next appointment never
+  /// hides among old ones; then the completed ones, the latest on top.
   Widget health() {
-    final list = [...s.rows('health_events')]
-      ..sort(
-        (a, b) =>
-            (a['event_date'] as String).compareTo(b['event_date'] as String),
-      );
+    int byDate(Json a, Json b) =>
+        (a['event_date'] as String).compareTo(b['event_date'] as String);
+    final all = s.rows('health_events');
+    final upcoming = all.where((e) => e['completed'] != true).toList()
+      ..sort(byDate);
+    final done = all.where((e) => e['completed'] == true).toList()
+      ..sort((a, b) => byDate(b, a));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1392,112 +1592,136 @@ class _HomeScreenState extends State<HomeScreen> {
           'Consultas, exames, medicamentos e seus custos.',
           action: add('Novo registro', () => editHealth()),
         ),
-        if (list.isEmpty)
+        if (all.isEmpty)
           EmptyState(
             'Nenhum compromisso registrado',
             'Comece pela próxima consulta ou exame.',
             onAdd: () => editHealth(),
           )
-        else
-          Panel(
-            child: Column(
+        else ...[
+          const SectionTitle('Próximos'),
+          if (upcoming.isEmpty)
+            SizedBox(
+              width: double.infinity,
+              child: Panel(
+                child: Text(
+                  'Nenhum compromisso pendente.',
+                  style: TextStyle(color: p.muted),
+                ),
+              ),
+            )
+          else
+            healthList(upcoming),
+          if (done.isNotEmpty) ...[
+            const SizedBox(height: 28),
+            const SectionTitle('Realizados'),
+            healthList(done),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Widget healthList(List<Json> list) => Panel(
+    child: Column(
+      children: [
+        for (final (i, e) in list.indexed) ...[
+          if (i > 0) const Divider(height: 1),
+          healthTile(e),
+        ],
+      ],
+    ),
+  );
+
+  Widget healthTile(Json e) {
+    final completed = e['completed'] == true;
+    final date = e['event_date'] as String;
+    final passed = !completed && date.compareTo(iso(DateTime.now())) < 0;
+    return Semantics(
+      container: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                for (final e in list)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(9),
-                              decoration: BoxDecoration(
-                                color: e['completed'] == true
-                                    ? p.mintTint
-                                    : p.brandTint,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                e['completed'] == true
-                                    ? Icons.check_rounded
-                                    : Icons.favorite_rounded,
-                                size: 19,
-                                color: e['completed'] == true
-                                    ? p.mint
-                                    : p.brandText,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    e['title'] as String,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${typeLabels[e['event_type']]} · ${dateText(e['event_date'] as String)}',
-                                    style: TextStyle(
-                                      color: p.muted,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            actions('health_events', e, () => editHealth(e)),
-                          ],
-                        ),
-                        if ((e['notes'] ?? '').toString().isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 10),
-                            child: Text(
-                              e['notes'] as String,
-                              style: TextStyle(color: p.muted),
-                            ),
-                          ),
-                        Wrap(
-                          spacing: 12,
-                          children: [
-                            TextButton(
-                              onPressed: saving
-                                  ? null
-                                  : () => perform(
-                                      () => s.save('health_events', {
-                                        'completed': e['completed'] != true,
-                                      }, id: e['id'] as String),
-                                    ),
-                              child: Text(
-                                e['completed'] == true
-                                    ? 'Reabrir'
-                                    : 'Marcar como realizado',
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: saving || e['expense_entry_id'] != null
-                                  ? null
-                                  : () => healthCost(e),
-                              child: Text(
-                                e['expense_entry_id'] != null
-                                    ? 'Despesa registrada'
-                                    : 'Registrar custo',
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Divider(height: 1),
-                      ],
-                    ),
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: completed ? p.mintTint : p.brandTint,
+                    shape: BoxShape.circle,
                   ),
+                  child: Icon(
+                    completed ? Icons.check_rounded : Icons.favorite_rounded,
+                    size: 19,
+                    color: completed ? p.mint : p.brandText,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        e['title'] as String,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        '${typeLabels[e['event_type']]} · ${dateText(date)}${passed ? ' · Data já passou' : ''}',
+                        style: TextStyle(
+                          color: passed ? p.danger : p.muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions('health_events', e, () => editHealth(e)),
               ],
             ),
-          ),
-      ],
+            if ((e['notes'] ?? '').toString().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  e['notes'] as String,
+                  style: TextStyle(color: p.muted),
+                ),
+              ),
+            Wrap(
+              spacing: 12,
+              children: [
+                TextButton(
+                  onPressed: saving
+                      ? null
+                      : () => perform(
+                          () => s.save('health_events', {
+                            'completed': !completed,
+                          }, id: e['id'] as String),
+                          done: completed
+                              ? 'Registro reaberto.'
+                              : 'Marcado como realizado.',
+                        ),
+                  child: Text(completed ? 'Reabrir' : 'Marcar como realizado'),
+                ),
+                TextButton(
+                  onPressed: saving || e['expense_entry_id'] != null
+                      ? null
+                      : () => healthCost(e),
+                  child: Text(
+                    e['expense_entry_id'] != null
+                        ? 'Despesa registrada'
+                        : 'Registrar custo',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1515,6 +1739,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (result != null) {
       await perform(
         () => s.rpc('record_health_cost', {'p_event_id': e['id'], ...result}),
+        done: 'Custo registrado em Finanças.',
       );
     }
   }
@@ -1553,7 +1778,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final value = await editForm(context, 'Criar família', const [
       FieldSpec('p_name', 'Nome da família', max: 80),
     ]);
-    if (value != null) await perform(() => s.rpc('create_household', value));
+    if (value != null) {
+      await perform(
+        () => s.rpc('create_household', value),
+        done: 'Família criada.',
+      );
+    }
   }
 
   Future<void> acceptInvite() async {
@@ -1564,7 +1794,12 @@ class _HomeScreenState extends State<HomeScreen> {
       help:
           'Cole o código compartilhado por quem criou a família. Ele expira em 72 horas e só pode ser usado uma vez.',
     );
-    if (value != null) await perform(() => s.rpc('accept_invite', value));
+    if (value != null) {
+      await perform(
+        () => s.rpc('accept_invite', value),
+        done: 'Você entrou na família.',
+      );
+    }
   }
 
   Widget family() => Column(
@@ -1595,7 +1830,12 @@ class _HomeScreenState extends State<HomeScreen> {
               onChanged: saving
                   ? null
                   : (v) {
-                      if (v != null) perform(() => s.selectFamily(v));
+                      if (v != null) {
+                        perform(
+                          () => s.selectFamily(v),
+                          done: 'Família selecionada.',
+                        );
+                      }
                     },
             ),
             const SizedBox(height: 20),
@@ -1618,6 +1858,28 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+            // Says why the buttons above are off.
+            if (s.demo)
+              Padding(
+                padding: const EdgeInsets.only(top: 14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, size: 18, color: p.brandText),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Convites e novas famílias ficam disponíveis quando você cria uma conta.',
+                        style: TextStyle(
+                          color: p.ink,
+                          fontWeight: FontWeight.w600,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 16),
             Text(
               'Convites são gerados pelo criador da família. Quem entrar poderá ver e editar finanças e registros de saúde. Gere somente para pessoas que devem compartilhar esses dados. Quem criou a família pode remover pessoas a qualquer momento.',
@@ -1638,18 +1900,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(color: p.muted),
               ),
             for (final m in s.members)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(m['email'] as String? ?? 'Sem e-mail'),
-                subtitle: Text(
-                  m['role'] == 'owner' ? 'Criou a família' : 'Participa',
+              Semantics(
+                container: true,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(m['email'] as String? ?? 'Sem e-mail'),
+                  subtitle: Text(
+                    m['role'] == 'owner' ? 'Criou a família' : 'Participa',
+                  ),
+                  trailing: s.isOwner && m['role'] != 'owner'
+                      ? TextButton(
+                          onPressed: saving ? null : () => removeMember(m),
+                          child: Text(
+                            'Remover',
+                            semanticsLabel: 'Remover ${m['email']}',
+                          ),
+                        )
+                      : null,
                 ),
-                trailing: s.isOwner && m['role'] != 'owner'
-                    ? TextButton(
-                        onPressed: saving ? null : () => removeMember(m),
-                        child: const Text('Remover'),
-                      )
-                    : null,
               ),
             if (!s.isOwner && !s.demo)
               Padding(
@@ -1755,7 +2023,7 @@ class _HomeScreenState extends State<HomeScreen> {
       code =
           await s.rpc('create_invite', {'p_household_id': s.householdId})
               as String;
-    });
+    }, done: 'Convite gerado.');
     if (code == null || !mounted) return;
     await showDialog<void>(
       context: context,
@@ -1815,6 +2083,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'p_household_id': s.householdId,
         'p_user_id': member['user_id'],
       }),
+      done: 'Pessoa removida da família.',
     );
   }
 
@@ -1841,6 +2110,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (ok != true) return;
     await perform(
       () => s.rpc('leave_household', {'p_household_id': s.householdId}),
+      done: 'Você saiu da família.',
     );
   }
 }
