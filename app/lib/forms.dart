@@ -102,19 +102,53 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
   }
 }
 
+/// Whether a form takes the whole screen: on a phone, with more than three
+/// fields.
+bool fullScreen(BuildContext context, List<FieldSpec> fields) =>
+    MediaQuery.sizeOf(context).width < 600 && fields.length > 3;
+
 Future<Json?> editForm(
   BuildContext context,
   String title,
   List<FieldSpec> fields, {
   Json initial = const {},
   String? help,
-}) => showDialog<Json>(
-  context: context,
+}) {
+  final dialog = EditDialog(
+    title: title,
+    fields: fields,
+    initial: initial,
+    help: help,
+  );
   // A tap beside the form must not throw away what was typed.
-  barrierDismissible: false,
-  builder: (_) =>
-      EditDialog(title: title, fields: fields, initial: initial, help: help),
-);
+  if (!fullScreen(context, fields)) {
+    return showDialog<Json>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => dialog,
+    );
+  }
+  // A whole-screen form rises from the bottom, like a new sheet of paper.
+  return showGeneralDialog<Json>(
+    context: context,
+    barrierDismissible: false,
+    barrierColor: Colors.black54,
+    transitionDuration: motion(context, 320),
+    pageBuilder: (_, _, _) => dialog,
+    transitionBuilder: (_, animation, _, child) {
+      final rise = animation.drive(CurveTween(curve: Curves.easeOutCubic));
+      return FadeTransition(
+        opacity: rise,
+        child: SlideTransition(
+          position: rise.drive(
+            Tween(begin: const Offset(0, .08), end: Offset.zero),
+          ),
+          child: child,
+        ),
+      );
+    },
+  );
+}
 
 class EditDialog extends StatefulWidget {
   final String title;
@@ -386,9 +420,7 @@ class _EditDialogState extends State<EditDialog> {
         ],
       ),
     );
-    // On a phone, a form with more than three fields takes the whole screen.
-    final full =
-        MediaQuery.sizeOf(context).width < 600 && widget.fields.length > 3;
+    final full = fullScreen(context, widget.fields);
     return PopScope(
       canPop: !dirty,
       onPopInvokedWithResult: (didPop, _) {

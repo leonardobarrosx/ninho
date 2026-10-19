@@ -437,17 +437,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                 constraints: const BoxConstraints(
                                   maxWidth: 1440,
                                 ),
-                                child: SingleChildScrollView(
-                                  // Each page keeps its own scroll position,
-                                  // instead of opening where the last one was.
-                                  key: PageStorageKey(page),
-                                  padding: EdgeInsets.fromLTRB(
-                                    wide ? 32 : 18,
-                                    20,
-                                    wide ? 32 : 18,
-                                    40,
+                                child: PageSwitch(
+                                  child: SingleChildScrollView(
+                                    // Each page keeps its own scroll position,
+                                    // instead of opening where the last one
+                                    // was.
+                                    key: PageStorageKey(page),
+                                    padding: EdgeInsets.fromLTRB(
+                                      wide ? 32 : 18,
+                                      20,
+                                      wide ? 32 : 18,
+                                      40,
+                                    ),
+                                    child: content(),
                                   ),
-                                  child: content(),
                                 ),
                               ),
                             ),
@@ -728,11 +731,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: total == 0 ? 0 : e.value / total,
-                      minHeight: 8,
-                      borderRadius: BorderRadius.circular(99),
-                      backgroundColor: p.surfaceAlt,
+                    GrowingBar(
+                      total == 0 ? 0 : e.value / total,
                       color: p.categories[colors[e.key]!].$1,
                     ),
                   ],
@@ -923,8 +923,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ? (p.indigoIcon, p.indigoTint)
         : (p.categories[color].$3, p.categories[color].$2);
     final verb = e.income ? 'Receber' : 'Pagar';
-    // A row is one item for screen readers, with its buttons after it.
+    // A row is one item for screen readers, with its buttons after it. The
+    // key keeps each row's animation with its own occurrence.
     return Semantics(
+      key: ValueKey('${e.entry['id']} ${iso(e.date)}'),
       container: true,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
@@ -971,37 +973,56 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontFeatures: tabularFigures,
                   ),
                 ),
-                if (!compact && e.paid)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.check_circle_rounded,
-                          size: 16,
-                          color: p.mint,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          e.income ? 'Recebido' : 'Pago',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: p.muted,
+                // Paying pops the paid state in where the button was.
+                if (!compact)
+                  AnimatedSwitcher(
+                    duration: motion(context, 260),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(
+                        scale: Tween(begin: .7, end: 1.0).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    layoutBuilder: (current, previous) => Stack(
+                      alignment: Alignment.centerRight,
+                      children: [...previous, ?current],
+                    ),
+                    child: e.paid
+                        ? Padding(
+                            key: const ValueKey('paid'),
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.check_circle_rounded,
+                                  size: 16,
+                                  color: p.mint,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  e.income ? 'Recebido' : 'Pago',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: p.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : TextButton(
+                            key: const ValueKey('pay'),
+                            onPressed: saving ? null : () => settle(e, true),
+                            child: Text(
+                              verb,
+                              semanticsLabel: '$verb $title',
+                              style: const TextStyle(fontSize: 12),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  )
-                else if (!compact)
-                  TextButton(
-                    onPressed: saving ? null : () => settle(e, true),
-                    child: Text(
-                      verb,
-                      semanticsLabel: '$verb $title',
-                      style: const TextStyle(fontSize: 12),
-                    ),
                   ),
               ],
             ),
@@ -1207,11 +1228,8 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(fontSize: 12, color: p.muted),
           ),
           const SizedBox(height: 22),
-          LinearProgressIndicator(
-            value: progress,
-            minHeight: 8,
-            borderRadius: BorderRadius.circular(99),
-            backgroundColor: p.surfaceAlt,
+          GrowingBar(
+            progress,
             semanticsLabel: 'Progresso da meta',
             semanticsValue: '${(progress * 100).round()}%',
           ),

@@ -12,9 +12,69 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>Ninho · Sua família, bem cuidada</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // Follows the theme saved in the app, so the opening matches it.
+    try {
+      var theme = JSON.parse(localStorage.getItem('flutter.ninho.theme') || 'null');
+      if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme;
+    } catch (e) {}
+  </script>
+  <style>
+    body { margin: 0; background: #fff2ea; }
+    /* The opening stays until Flutter draws its first frame. */
+    #splash {
+      position: fixed; inset: 0; z-index: 1;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px;
+      background: #fff2ea; color: #3a3248;
+      transition: opacity .4s ease, visibility .4s;
+    }
+    #splash .mark { width: 128px; height: 128px; animation: breathe 1.8s ease-in-out infinite; }
+    #splash .name { width: 112px; height: auto; }
+    #splash.done { opacity: 0; visibility: hidden; }
+    @keyframes breathe { 50% { transform: scale(1.05); } }
+    :root[data-theme="dark"] body, :root[data-theme="dark"] #splash { background: #221e2d; color: #f7f0ea; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) body, :root:not([data-theme="light"]) #splash { background: #221e2d; color: #f7f0ea; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #splash .mark { animation: none; }
+      #splash { transition: none; }
+    }
+  </style>
 </head>
-<body style="margin:0;background:#fff2ea">
-  <style>@media (prefers-color-scheme: dark) { body { background: #221e2d !important; } }</style>
+<body>
+  <div id="splash" role="status" aria-label="Carregando o Ninho">
+    <!-- The Abraço mark on its orange disc, as NinhoLogo draws it in the app. -->
+    <svg class="mark" viewBox="0 0 256 256" aria-hidden="true">
+      <circle cx="128" cy="128" r="128" fill="#FF8A5C"/>
+      <g transform="translate(26 26) scale(.8)" fill="#FFF6EA">
+        <path d="M128 27C101 27 79 71 79 105C79 134 99 149 128 149C157 149 177 134 177 105C177 71 155 27 128 27Z"/>
+        <path d="M68 76C34 89 17 113 17 145C17 192 58 222 117 224C138 225 155 223 174 218C171 190 151 177 116 166C83 156 59 144 48 123C45 117 50 113 54 119C60 128 65 133 73 137C64 120 61 98 68 76Z"/>
+        <path d="M187 76C220 90 239 113 239 145C239 174 219 201 184 215C181 190 167 174 146 163C171 155 189 135 190 111C191 98 189 87 187 76Z"/>
+      </g>
+    </svg>
+    <!-- The name, from branding/ninho-A-lettering.svg, in the text color. -->
+    <svg class="name" viewBox="0 0 370 132" aria-hidden="true">
+      <g transform="translate(8 20)">
+        <g fill="none" stroke="currentColor" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 90V49C16 13 65 13 65 49V90"/>
+          <path d="M98 90V34"/>
+          <path d="M132 90V49C132 13 181 13 181 49V90"/>
+          <path d="M215 90V3M215 49C215 13 264 13 264 49V90"/>
+          <ellipse cx="315" cy="60" rx="26" ry="31"/>
+        </g>
+        <circle cx="98" cy="5" r="11" fill="currentColor"/>
+      </g>
+    </svg>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var splash = document.getElementById('splash');
+      if (!splash) return;
+      splash.classList.add('done');
+      setTimeout(function () { splash.remove(); }, 500);
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

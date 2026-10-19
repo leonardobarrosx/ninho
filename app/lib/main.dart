@@ -112,36 +112,52 @@ class _NinhoAppState extends State<NinhoApp> {
       builder: (context, child) => Stack(
         children: [
           ExcludeSemantics(excluding: covering, child: child),
-          if (covering) const Positioned.fill(child: LaunchCover()),
+          // The cover fades away when the ad flow ends. The fade takes each
+          // child's key, so both need one of their own.
+          Positioned.fill(
+            child: AnimatedSwitcher(
+              duration: motion(context, 350),
+              child: covering
+                  ? const LaunchCover(key: ValueKey('cover'))
+                  : const SizedBox.shrink(key: ValueKey('app')),
+            ),
+          ),
         ],
       ),
-      home: recovery
-          ? RecoveryScreen(onDone: () => setState(() => recovery = false))
-          : store == null
-          ? AuthScreen(
-              theme: theme,
-              onTheme: setTheme,
-              onDemo: () {
-                setState(() => store = Store(demo: true));
-              },
-            )
-          : HomeScreen(
-              key: ValueKey(store),
-              store: store!,
-              ads: widget.ads,
-              theme: theme,
-              onTheme: setTheme,
-              onLogout: () async {
-                if (store!.demo) {
-                  setState(() {
-                    store!.dispose();
-                    store = null;
-                  });
-                } else {
-                  await Supabase.instance.client.auth.signOut();
-                }
-              },
-            ),
+      // Sign-in, recovery and the home screen cross-fade into each other.
+      home: ScreenSwitch(
+        child: recovery
+            ? RecoveryScreen(
+                key: const ValueKey('recovery'),
+                onDone: () => setState(() => recovery = false),
+              )
+            : store == null
+            ? AuthScreen(
+                key: const ValueKey('auth'),
+                theme: theme,
+                onTheme: setTheme,
+                onDemo: () {
+                  setState(() => store = Store(demo: true));
+                },
+              )
+            : HomeScreen(
+                key: ValueKey(store),
+                store: store!,
+                ads: widget.ads,
+                theme: theme,
+                onTheme: setTheme,
+                onLogout: () async {
+                  if (store!.demo) {
+                    setState(() {
+                      store!.dispose();
+                      store = null;
+                    });
+                  } else {
+                    await Supabase.instance.client.auth.signOut();
+                  }
+                },
+              ),
+      ),
     );
   }
 }

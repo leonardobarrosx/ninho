@@ -109,6 +109,33 @@ void main() {
     expect(find.text(overview), findsOneWidget);
   });
 
+  testWidgets('tabs cross-fade, and switch at once without animations', (
+    tester,
+  ) async {
+    await openDemo(tester);
+    await tester.tap(find.text('Finanças').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+    // Halfway through, the old page fades out over the new one.
+    expect(find.text(overview), findsOneWidget);
+    expect(find.text('Finanças da família'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text(overview), findsNothing);
+  });
+
+  testWidgets('without animations, the page just changes', (tester) async {
+    // The person turned animations off in the system settings.
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await openDemo(tester);
+    await tester.tap(find.text('Finanças').last);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text(overview), findsNothing);
+    expect(find.text('Finanças da família'), findsOneWidget);
+  });
+
   testWidgets('the account menu switches the theme and remembers it', (
     tester,
   ) async {
