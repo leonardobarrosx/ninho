@@ -3,27 +3,149 @@ import 'package:url_launcher/url_launcher.dart';
 import 'domain.dart';
 import 'theme.dart';
 
-/// Shown over the app while a launch waits for the app open ad. Like the
-/// Android launch screen, it is the page background, here with the logo.
+/// How long an animation lasts, or no time at all when the person turned
+/// animations off in the system settings.
+Duration motion(BuildContext context, int milliseconds) =>
+    MediaQuery.maybeDisableAnimationsOf(context) ?? false
+    ? Duration.zero
+    : Duration(milliseconds: milliseconds);
+
+/// Shown over the app while a launch waits for the app open ad. It continues
+/// the Android launch screen: the same background and a 144 dp logo in the
+/// middle, which then breathes while the ad flow decides.
 class LaunchCover extends StatelessWidget {
   const LaunchCover({super.key});
   @override
   Widget build(BuildContext context) => AbsorbPointer(
     child: ColoredBox(
       color: Palette.of(context).background,
-      child: const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            NinhoLogo(size: 96),
-            SizedBox(height: 28),
-            SizedBox.square(
-              dimension: 22,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
+      child: Stack(
+        // It fills the screen, so no tap reaches the app behind it.
+        fit: StackFit.expand,
+        alignment: Alignment.center,
+        children: [
+          const Center(child: Breathing(child: NinhoLogo(size: 144))),
+          Center(
+            child: Transform.translate(
+              offset: const Offset(0, 124),
+              child: const SizedBox.square(
+                dimension: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    ),
+  );
+}
+
+/// Grows and shrinks its child a little, slowly, like breathing. Still when
+/// animations are off.
+class Breathing extends StatefulWidget {
+  final Widget child;
+  const Breathing({super.key, required this.child});
+  @override
+  State<Breathing> createState() => _BreathingState();
+}
+
+class _BreathingState extends State<Breathing>
+    with SingleTickerProviderStateMixin {
+  late final controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1800),
+  );
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (motion(context, 1) == Duration.zero) {
+      controller.stop();
+    } else if (!controller.isAnimating) {
+      controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ScaleTransition(
+    scale: Tween(
+      begin: 1.0,
+      end: 1.05,
+    ).animate(CurvedAnimation(parent: controller, curve: Curves.easeInOut)),
+    child: widget.child,
+  );
+}
+
+/// Cross-fades between whole screens, such as sign-in and the home screen.
+/// Each screen needs its own key.
+class ScreenSwitch extends StatelessWidget {
+  final Widget child;
+  const ScreenSwitch({super.key, required this.child});
+  @override
+  Widget build(BuildContext context) => AnimatedSwitcher(
+    duration: motion(context, 400),
+    switchInCurve: Curves.easeOutCubic,
+    switchOutCurve: Curves.easeInCubic,
+    child: child,
+  );
+}
+
+/// Cross-fades pages with a slight zoom when the tab changes, close to the
+/// Material "fade through". Each page needs its own key.
+class PageSwitch extends StatelessWidget {
+  final Widget child;
+  const PageSwitch({super.key, required this.child});
+  @override
+  Widget build(BuildContext context) => AnimatedSwitcher(
+    duration: motion(context, 300),
+    switchInCurve: Curves.easeOutCubic,
+    switchOutCurve: Curves.easeInCubic,
+    transitionBuilder: (child, animation) => FadeTransition(
+      opacity: animation,
+      child: ScaleTransition(
+        scale: Tween(begin: .97, end: 1.0).animate(animation),
+        child: child,
+      ),
+    ),
+    layoutBuilder: (current, previous) => Stack(
+      alignment: Alignment.topCenter,
+      children: [...previous, ?current],
+    ),
+    child: child,
+  );
+}
+
+/// A bar that grows to its value when it appears and slides to a new value
+/// when it changes, for the category chart and the goals.
+class GrowingBar extends StatelessWidget {
+  final double value;
+  final Color? color;
+  final String? semanticsLabel, semanticsValue;
+  const GrowingBar(
+    this.value, {
+    super.key,
+    this.color,
+    this.semanticsLabel,
+    this.semanticsValue,
+  });
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+    tween: Tween(begin: 0, end: value),
+    duration: motion(context, 700),
+    curve: Curves.easeOutCubic,
+    builder: (context, shown, _) => LinearProgressIndicator(
+      value: shown,
+      minHeight: 8,
+      borderRadius: BorderRadius.circular(99),
+      backgroundColor: Palette.of(context).surfaceAlt,
+      color: color,
+      semanticsLabel: semanticsLabel,
+      semanticsValue: semanticsValue,
     ),
   );
 }
@@ -193,17 +315,38 @@ class Metric extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                value,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -.7,
-                  color: strong,
-                  fontFeatures: tabularFigures,
+            // A new value, as when the month changes, rises into place.
+            AnimatedSwitcher(
+              duration: motion(context, 280),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween(
+                    begin: const Offset(0, .3),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              ),
+              layoutBuilder: (current, previous) => Stack(
+                alignment: Alignment.centerLeft,
+                children: [...previous, ?current],
+              ),
+              child: FittedBox(
+                key: ValueKey(value),
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.7,
+                    color: strong,
+                    fontFeatures: tabularFigures,
+                  ),
                 ),
               ),
             ),

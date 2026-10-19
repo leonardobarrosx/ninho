@@ -6,9 +6,9 @@
   - `flutter pub get` resolve as dependências; o `app/pubspec.lock` está versionado.
   - `dart format --output=none --set-exit-if-changed lib test` não altera nenhum arquivo.
   - `flutter analyze` termina sem nenhum aviso.
-  - `flutter test` passa os 60 testes:
+  - `flutter test` passa os 62 testes:
     - 7 de domínio.
-    - 16 de interface:
+    - 18 de interface:
       - A demonstração percorre as abas no celular nos temas claro e escuro, abre Família pelo menu da conta e volta.
       - Em 360 px, a barra de baixo tem cinco abas, sem estouro de layout.
       - Cada aba guarda a própria rolagem.
@@ -23,11 +23,13 @@
       - Os ícones sobre os fundos coloridos (verde-menta, azul, lilás e amarelo) têm contraste de pelo menos 3:1 nos dois temas, também sobre o círculo do cartão de resumo, e os cartões de resumo e as linhas usam essas cores.
       - Os filtros de Finanças são opções de um grupo para o leitor de tela e continuam filtrando.
       - A página de licenças de código aberto abre em Família › Sobre esta versão e lista a Nunito.
+      - As abas trocam com um fade: no meio da transição, as duas páginas estão na tela.
+      - Com as animações desligadas no sistema, a página troca de uma vez.
     - 7 de formulário: datas em dd/mm/aaaa salvas em ISO, data opcional que pode ser apagada, data obrigatória, voltar com alterações pede confirmação, voltar sem alterações e Cancelar fecham na hora, um toque fora de um formulário curto não o fecha, e a tecla de ação do teclado passa para o próximo campo.
     - 2 de entrada: as mensagens de erro do Supabase Auth saem em português, e o formulário de login tem preenchimento automático, botão de mostrar a senha e erro em vermelho anunciado pelo leitor de tela.
     - Três correções quebradas de propósito (sem a rolagem por aba, sem o nome do lançamento no botão Pagar e com o toque fora fechando o formulário) fizeram os testes correspondentes falharem.
     - 16 do anúncio de abertura, com um substituto dos SDKs do Google: consentimento a cada abertura, instalação nova sem anúncio, limite de 4 horas, anúncio personalizado só com resposta atualizada na mensagem do Google, só não personalizado onde não há mensagem (como no Brasil), mensagem de consentimento no lugar do anúncio, falha e atraso do anúncio, consulta de consentimento sem resposta, recuperação de senha, opções de privacidade (inclusive quando o Google não responde) e erro do SDK. Três regras quebradas de propósito (ignorar a recuperação de senha, ignorar o prazo e personalizar sem consentimento atualizado) fizeram os testes correspondentes falharem.
-    - 7 de conta e abertura: a capa segura o app até o fim do fluxo do anúncio; a demonstração não exclui conta; a exclusão só é confirmada com a senha, num campo oculto, e a senha chega ao `Store`, nos temas claro e escuro; cancelar mantém a conta; uma senha errada mostra o motivo.
+    - 7 de conta e abertura: a capa cobre a tela inteira, segura o app até o fim do fluxo do anúncio e some com um fade; a demonstração não exclui conta; a exclusão só é confirmada com a senha, num campo oculto, e a senha chega ao `Store`, nos temas claro e escuro; cancelar mantém a conta; uma senha errada mostra o motivo.
     - 5 de tipografia, com a Nunito embutida carregada no teste (sem ela, o teste desenha cada letra como um quadrado):
       - Valores em reais com algarismos diferentes ocupam a mesma largura.
       - Em 360, 375, 390 e 412 px, nenhum título deixa uma palavra sozinha na última linha: entrada, as cinco abas da demonstração, Família, o início sem família e as abas sem registros.
@@ -43,6 +45,11 @@
   - Recursos externos da web, conferidos com o Playwright no Edge:
     - Com `--no-web-resources-cdn`, o CanvasKit e a Roboto de reserva do Flutter saem do próprio site, e abrir a demonstração não faz nenhuma requisição a outro domínio. Antes, eles vinham de www.gstatic.com e fonts.gstatic.com.
     - Ao digitar um emoji, o navegador baixa a Noto Color Emoji de fonts.gstatic.com e o emoji aparece. A política de privacidade passou a dizer isso.
+  - Abertura e animações, conferidas no build com o Playwright no Edge:
+    - A abertura da web mostra a logo e o nome nos temas claro e escuro. Ela segue o tema salvo no app, mesmo contra o tema do sistema, e some com um fade quando o Flutter desenha a primeira tela.
+    - As abas trocam com fade, as barras crescem, o "Pago" aparece no lugar do botão e o formulário longo sobe da parte de baixo.
+    - As capturas e o GIF do README saíram desse build.
+  - Abertura do Android (`res/drawable/splash_icon.xml`, `launch_background.xml` e os estilos em `values-v31` e `values-night-v31`): os XMLs estão bem formados, mas não passaram pelo aapt2 nem rodaram num aparelho, porque não há Android SDK.
   - No build, a página de licenças abre em português com o nome, o ícone e a versão do Ninho. Na web, os filtros de Finanças aparecem como opções de rádio na árvore de acessibilidade.
   - Os ícones azul, lilás e amarelo sobre os fundos claros ficaram mais escuros no tema claro (#2469de, #595fd8 e #996c0a, contraste de cerca de 4:1); no tema escuro já passavam de 6:1.
   - Nunito 3.602, do download oficial do Google Fonts (v32): os cinco arquivos estáticos (pesos 400 a 800) são TrueType válidos, com a licença SIL OFL 1.1 nos metadados e em `app/assets/fonts/OFL.txt`.
