@@ -1,9 +1,11 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ninho/main.dart';
 import 'package:ninho/screens.dart';
 import 'package:ninho/theme.dart';
+import 'package:ninho/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Headlines keep their last two words together with a no-break space.
@@ -211,26 +213,84 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('icons on the mint tint keep 3:1 contrast', (tester) async {
+  testWidgets('icons on tints keep 3:1 contrast', (tester) async {
     double contrast(Color a, Color b) {
       final (x, y) = (a.computeLuminance(), b.computeLuminance());
       return (max(x, y) + .05) / (min(x, y) + .05);
     }
 
     for (final p in [Palette.light, Palette.dark]) {
-      // Entry rows and Saúde put the icon on the tint; the summary card puts
-      // it on a faint ink circle over the tint.
-      final circle = Color.alphaBlend(p.ink.withValues(alpha: .08), p.mintTint);
-      expect(contrast(p.mintIcon, p.mintTint), greaterThanOrEqualTo(3));
-      expect(contrast(p.mintIcon, circle), greaterThanOrEqualTo(3));
+      final pairs = [
+        (p.mintIcon, p.mintTint),
+        for (final (_, tint, icon) in p.categories) (icon, tint),
+      ];
+      for (final (icon, tint) in pairs) {
+        // Entry rows, Saúde and Bebê put the icon on the tint; the summary
+        // card puts it on a faint ink circle over the tint.
+        final circle = Color.alphaBlend(p.ink.withValues(alpha: .08), tint);
+        expect(contrast(icon, tint), greaterThanOrEqualTo(3), reason: '$tint');
+        expect(
+          contrast(icon, circle),
+          greaterThanOrEqualTo(3),
+          reason: '$tint',
+        );
+      }
     }
     await openDemo(tester);
+    Color? metricIcon(String label) => tester
+        .widget<Icon>(
+          find.descendant(
+            of: find.widgetWithText(Metric, label),
+            matching: find.byType(Icon),
+          ),
+        )
+        .color;
+    expect(metricIcon('Receitas previstas'), Palette.light.mintIcon);
+    expect(metricIcon('Despesas previstas'), Palette.light.indigoIcon);
+    expect(metricIcon('Falta para o essencial'), Palette.light.sunnyIcon);
     await tester.tap(find.text('Finanças').last);
     await tester.pumpAndSettle();
     final income = find.byWidgetPredicate(
       (w) => w is Icon && w.semanticLabel == 'Receita',
     );
     expect(tester.widget<Icon>(income.first).color, Palette.light.mintIcon);
+  });
+
+  testWidgets('filters read as options of one group and still filter', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await openDemo(tester);
+    await tester.tap(find.text('Finanças').last);
+    await tester.pumpAndSettle();
+    for (final filter in ['Todos', 'Receitas', 'Despesas', 'Pendentes']) {
+      expect(
+        tester.getSemantics(find.text(filter)),
+        containsSemantics(isInMutuallyExclusiveGroup: true),
+        reason: filter,
+      );
+    }
+    expect(find.text('Supermercado'), findsOneWidget);
+    await tester.tap(find.text('Receitas'));
+    await tester.pumpAndSettle();
+    expect(find.text('Supermercado'), findsNothing);
+    expect(find.text('Salário mensal'), findsOneWidget);
+    semantics.dispose();
+  });
+
+  testWidgets('the licenses page lists the bundled font', (tester) async {
+    addTearDown(LicenseRegistry.reset);
+    registerLicenses();
+    await openDemo(tester);
+    await openFamily(tester);
+    await tester.ensureVisible(find.text('Licenças de código aberto'));
+    await tester.tap(find.text('Licenças de código aberto'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LicensePage), findsOneWidget);
+    // The page reads the font's license file in the background.
+    await tester.runAsync(() => Future<void>.delayed(Durations.long2));
+    await tester.pumpAndSettle();
+    expect(find.text('Nunito'), findsOneWidget);
   });
 
   testWidgets('screen readers get items, headings and named buttons', (

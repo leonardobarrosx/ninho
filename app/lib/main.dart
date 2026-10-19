@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -11,12 +12,21 @@ import 'widgets.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerLicenses();
   if (configured) {
     await Supabase.initialize(url: supabaseUrl, anonKey: supabaseKey);
   }
   final theme = await savedTheme();
   runApp(NinhoApp(initialTheme: theme, ads: await AdMobAds.create()));
 }
+
+/// Adds the bundled Nunito's license to the open-source licenses page. Flutter
+/// lists the licenses of packages by itself, but not those of font assets.
+void registerLicenses() => LicenseRegistry.addLicense(() async* {
+  yield LicenseEntryWithLineBreaks([
+    'Nunito',
+  ], await rootBundle.loadString('assets/fonts/OFL.txt'));
+});
 
 class NinhoApp extends StatefulWidget {
   final NinhoTheme initialTheme;
