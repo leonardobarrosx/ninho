@@ -250,8 +250,9 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+              // The no-break space keeps "essa fase" together on a phone.
               const Text(
-                'Mais clareza nas contas.\nMais espaço para viver essa fase.',
+                'Mais clareza nas contas.\nMais espaço para viver essa\u00a0fase.',
                 style: TextStyle(fontSize: 23, height: 1.4),
               ),
               const SizedBox(height: 28),

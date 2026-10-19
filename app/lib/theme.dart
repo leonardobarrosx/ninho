@@ -9,14 +9,19 @@ const themeLabels = {
   NinhoTheme.dark: 'Escuro',
 };
 
+/// Figures of equal width, so amounts line up in lists, cards and bars, and
+/// so do the numbers of a chart axis.
+const tabularFigures = [FontFeature.tabularFigures()];
+
 // Text colors keep WCAG AA contrast on their backgrounds, including ink on
 // the brand orange. Accents are for icons, bars and lines, not body text.
+// Icons on the mint tint use mintIcon, which keeps 3:1 there.
 @immutable
 class Palette extends ThemeExtension<Palette> {
   final Color background, surface, surfaceAlt, border, ink, muted;
   final Color brand, onBrand, brandText, brandTint, danger;
   final Color mint, sky, indigo, sunny;
-  final Color mintTint, skyTint, indigoTint, sunnyTint;
+  final Color mintTint, skyTint, indigoTint, sunnyTint, mintIcon;
   const Palette({
     required this.background,
     required this.surface,
@@ -37,6 +42,7 @@ class Palette extends ThemeExtension<Palette> {
     required this.skyTint,
     required this.indigoTint,
     required this.sunnyTint,
+    required this.mintIcon,
   });
 
   static const light = Palette(
@@ -59,6 +65,7 @@ class Palette extends ThemeExtension<Palette> {
     skyTint: Color(0xffdce7fd),
     indigoTint: Color(0xffe4e1fb),
     sunnyTint: Color(0xffffedbf),
+    mintIcon: Color(0xff247f59),
   );
 
   static const dark = Palette(
@@ -81,6 +88,7 @@ class Palette extends ThemeExtension<Palette> {
     skyTint: Color(0xff283450),
     indigoTint: Color(0xff332e55),
     sunnyTint: Color(0xff3f3727),
+    mintIcon: Color(0xff8fdfbd),
   );
 
   static Palette of(BuildContext context) =>
@@ -127,11 +135,15 @@ class Palette extends ThemeExtension<Palette> {
       skyTint: c(skyTint, other.skyTint),
       indigoTint: c(indigoTint, other.indigoTint),
       sunnyTint: c(sunnyTint, other.sunnyTint),
+      mintIcon: c(mintIcon, other.mintIcon),
     );
   }
 }
 
 ThemeData buildTheme(Palette p, Brightness brightness) {
+  // Button, chip and snack bar text styles replace the default style instead
+  // of adding to it, so they name the font too.
+  const font = 'Nunito';
   final scheme =
       ColorScheme.fromSeed(seedColor: p.brand, brightness: brightness).copyWith(
         primary: p.brand,
@@ -162,7 +174,7 @@ ThemeData buildTheme(Palette p, Brightness brightness) {
     brightness: brightness,
     colorScheme: scheme,
     scaffoldBackgroundColor: p.background,
-    fontFamily: 'Roboto',
+    fontFamily: font,
     extensions: [p],
     appBarTheme: AppBarTheme(
       backgroundColor: p.background,
@@ -193,7 +205,10 @@ ThemeData buildTheme(Palette p, Brightness brightness) {
         foregroundColor: p.onBrand,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
         shape: const StadiumBorder(),
-        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        textStyle: const TextStyle(
+          fontFamily: font,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -202,14 +217,20 @@ ThemeData buildTheme(Palette p, Brightness brightness) {
         side: BorderSide(color: p.border, width: 1.5),
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
         shape: const StadiumBorder(),
-        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(
+          fontFamily: font,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: p.brandText,
         shape: const StadiumBorder(),
-        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(
+          fontFamily: font,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
@@ -226,7 +247,10 @@ ThemeData buildTheme(Palette p, Brightness brightness) {
         selectedForegroundColor: p.ink,
         selectedBackgroundColor: p.brandTint,
         side: BorderSide(color: p.border),
-        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(
+          fontFamily: font,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     ),
     chipTheme: ChipThemeData(
@@ -234,7 +258,11 @@ ThemeData buildTheme(Palette p, Brightness brightness) {
       selectedColor: p.brandTint,
       side: BorderSide(color: p.border),
       shape: const StadiumBorder(),
-      labelStyle: TextStyle(color: p.ink, fontWeight: FontWeight.w600),
+      labelStyle: TextStyle(
+        fontFamily: font,
+        color: p.ink,
+        fontWeight: FontWeight.w600,
+      ),
       checkmarkColor: p.ink,
     ),
     dialogTheme: DialogThemeData(
@@ -250,7 +278,7 @@ ThemeData buildTheme(Palette p, Brightness brightness) {
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: p.ink,
-      contentTextStyle: TextStyle(color: p.background),
+      contentTextStyle: TextStyle(fontFamily: font, color: p.background),
       actionTextColor: p.brandTint,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),

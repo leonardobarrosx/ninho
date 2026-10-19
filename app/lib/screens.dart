@@ -523,8 +523,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // A no-break space keeps the last two words of a headline together,
+        // so a phone never leaves one of them alone on the last line.
         Heading(
-          'Seu próximo passo, mais claro.',
+          'Seu próximo passo, mais\u00a0claro.',
           'As contas da casa e os planos para o bebê, no mesmo lugar.',
           action: monthPicker(),
         ),
@@ -544,7 +546,7 @@ class _HomeScreenState extends State<HomeScreen> {
               'Recebido: ${money(m.sum(true, paid: true))}',
               Icons.south_west_rounded,
               color: p.mintTint,
-              accent: p.mint,
+              accent: p.mintIcon,
             ),
             Metric(
               'Despesas previstas',
@@ -720,6 +722,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
+                            fontFeatures: tabularFigures,
                           ),
                         ),
                       ],
@@ -847,7 +850,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 20),
         if (list.isEmpty)
           EmptyState(
-            'Nenhum lançamento encontrado',
+            'Nenhum lançamento\u00a0encontrado',
             'Adicione uma receita ou despesa para este período.',
             onAdd: () => editEntry(),
           )
@@ -864,7 +867,7 @@ class _HomeScreenState extends State<HomeScreen> {
             TextButton.icon(
               onPressed: () => editDebt(),
               icon: const Icon(Icons.add),
-              label: const Text('Adicionar dívida'),
+              label: const Text('Nova dívida'),
             ),
           ],
         ),
@@ -915,7 +918,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final title = e.entry['title'] as String;
     final color = colors[e.entry['category']];
     final (icon, tint) = e.income
-        ? (p.mint, p.mintTint)
+        ? (p.mintIcon, p.mintTint)
         : color == null
         ? (p.indigo, p.indigoTint)
         : (p.categories[color].$3, p.categories[color].$2);
@@ -963,7 +966,10 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   money(e.amount),
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: tabularFigures,
+                  ),
                 ),
                 if (!compact && e.paid)
                   Padding(
@@ -1422,38 +1428,48 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        LayoutBuilder(
-          builder: (ctx, b) {
-            final cards = [
-              GrowthChart(
-                rows: measures,
-                field: 'weight_grams',
-                title: 'Peso',
-                unit: 'kg',
-                divisor: 1000,
-              ),
-              GrowthChart(
-                rows: measures,
-                field: 'length_mm',
-                title: 'Comprimento',
-                unit: 'cm',
-                divisor: 10,
-              ),
-            ];
-            return b.maxWidth > 750
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: cards[0]),
-                      const SizedBox(width: 20),
-                      Expanded(child: cards[1]),
-                    ],
-                  )
-                : Column(
-                    children: [cards[0], const SizedBox(height: 20), cards[1]],
-                  );
-          },
-        ),
+        // Without two measures for either line, one card says so, instead of
+        // the same hint in both.
+        if (!GrowthChart.plots(measures, 'weight_grams') &&
+            !GrowthChart.plots(measures, 'length_mm'))
+          const GrowthHint('Peso e comprimento')
+        else
+          LayoutBuilder(
+            builder: (ctx, b) {
+              final cards = [
+                GrowthChart(
+                  rows: measures,
+                  field: 'weight_grams',
+                  title: 'Peso',
+                  unit: 'kg',
+                  divisor: 1000,
+                ),
+                GrowthChart(
+                  rows: measures,
+                  field: 'length_mm',
+                  title: 'Comprimento',
+                  unit: 'cm',
+                  divisor: 10,
+                ),
+              ];
+              return b.maxWidth > 750
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: cards[0]),
+                        const SizedBox(width: 20),
+                        Expanded(child: cards[1]),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        cards[0],
+                        const SizedBox(height: 20),
+                        cards[1],
+                      ],
+                    );
+            },
+          ),
         const SizedBox(height: 26),
         Row(
           children: [
@@ -1588,13 +1604,13 @@ class _HomeScreenState extends State<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Heading(
-          'Cuidado também é organização.',
+          'Cuidado também é\u00a0organização.',
           'Consultas, exames, medicamentos e seus custos.',
           action: add('Novo registro', () => editHealth()),
         ),
         if (all.isEmpty)
           EmptyState(
-            'Nenhum compromisso registrado',
+            'Nenhum compromisso\u00a0registrado',
             'Comece pela próxima consulta ou exame.',
             onAdd: () => editHealth(),
           )
@@ -1655,7 +1671,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Icon(
                     completed ? Icons.check_rounded : Icons.favorite_rounded,
                     size: 19,
-                    color: completed ? p.mint : p.brandText,
+                    color: completed ? p.mintIcon : p.brandText,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1754,7 +1770,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const NinhoLogo(size: 88),
             const SizedBox(height: 20),
             const Heading(
-              'Um lugar para os planos de vocês.',
+              'Um lugar para os planos de\u00a0vocês.',
               'Crie uma família ou entre com o convite de quem já começou.',
             ),
             SizedBox(
