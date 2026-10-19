@@ -15,13 +15,15 @@ const tabularFigures = [FontFeature.tabularFigures()];
 
 // Text colors keep WCAG AA contrast on their backgrounds, including ink on
 // the brand orange. Accents are for icons, bars and lines, not body text.
-// Icons on the mint tint use mintIcon, which keeps 3:1 there.
+// Icons on a tint use the matching icon color (brandText on the brand tint),
+// which keeps 3:1 there; in the light theme the accents themselves do not.
 @immutable
 class Palette extends ThemeExtension<Palette> {
   final Color background, surface, surfaceAlt, border, ink, muted;
   final Color brand, onBrand, brandText, brandTint, danger;
   final Color mint, sky, indigo, sunny;
-  final Color mintTint, skyTint, indigoTint, sunnyTint, mintIcon;
+  final Color mintTint, skyTint, indigoTint, sunnyTint;
+  final Color mintIcon, skyIcon, indigoIcon, sunnyIcon;
   const Palette({
     required this.background,
     required this.surface,
@@ -43,6 +45,9 @@ class Palette extends ThemeExtension<Palette> {
     required this.indigoTint,
     required this.sunnyTint,
     required this.mintIcon,
+    required this.skyIcon,
+    required this.indigoIcon,
+    required this.sunnyIcon,
   });
 
   static const light = Palette(
@@ -66,6 +71,9 @@ class Palette extends ThemeExtension<Palette> {
     indigoTint: Color(0xffe4e1fb),
     sunnyTint: Color(0xffffedbf),
     mintIcon: Color(0xff247f59),
+    skyIcon: Color(0xff2469de),
+    indigoIcon: Color(0xff595fd8),
+    sunnyIcon: Color(0xff996c0a),
   );
 
   static const dark = Palette(
@@ -89,6 +97,9 @@ class Palette extends ThemeExtension<Palette> {
     indigoTint: Color(0xff332e55),
     sunnyTint: Color(0xff3f3727),
     mintIcon: Color(0xff8fdfbd),
+    skyIcon: Color(0xffa3c2f8),
+    indigoIcon: Color(0xffbab5f5),
+    sunnyIcon: Color(0xfff6d486),
   );
 
   static Palette of(BuildContext context) =>
@@ -98,13 +109,12 @@ class Palette extends ThemeExtension<Palette> {
 
   /// Expense category colors as (accent, tint, icon on the tint), from the
   /// largest category. Mint is left out because it marks money coming in.
-  /// The brand orange is too faint on its tint for an icon, so its icons use
-  /// the brand text color. Smaller categories share the neutral last one.
+  /// Smaller categories share the neutral last one.
   List<(Color, Color, Color)> get categories => [
     (brand, brandTint, brandText),
-    (sky, skyTint, sky),
-    (indigo, indigoTint, indigo),
-    (sunny, sunnyTint, sunny),
+    (sky, skyTint, skyIcon),
+    (indigo, indigoTint, indigoIcon),
+    (sunny, sunnyTint, sunnyIcon),
     (muted, surfaceAlt, muted),
   ];
 
@@ -136,6 +146,9 @@ class Palette extends ThemeExtension<Palette> {
       indigoTint: c(indigoTint, other.indigoTint),
       sunnyTint: c(sunnyTint, other.sunnyTint),
       mintIcon: c(mintIcon, other.mintIcon),
+      skyIcon: c(skyIcon, other.skyIcon),
+      indigoIcon: c(indigoIcon, other.indigoIcon),
+      sunnyIcon: c(sunnyIcon, other.sunnyIcon),
     );
   }
 }

@@ -554,7 +554,7 @@ class _HomeScreenState extends State<HomeScreen> {
               'Pago: ${money(m.sum(false, paid: true))}',
               Icons.north_east_rounded,
               color: p.indigoTint,
-              accent: p.indigo,
+              accent: p.indigoIcon,
             ),
             Metric(
               'Falta para o essencial',
@@ -564,7 +564,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   : '$ready de ${essential.length} metas concluídas',
               Icons.child_care_rounded,
               color: p.sunnyTint,
-              accent: p.sunny,
+              accent: p.sunnyIcon,
             ),
           ],
         ),
@@ -832,10 +832,10 @@ class _HomeScreenState extends State<HomeScreen> {
               'expense': 'Despesas',
               'pending': 'Pendentes',
             }.entries)
-              ChoiceChip(
-                label: Text(e.value),
+              OptionChip(
+                e.value,
                 selected: filter == e.key,
-                onSelected: (_) => setState(() => filter = e.key),
+                onSelected: () => setState(() => filter = e.key),
               ),
           ],
         ),
@@ -920,7 +920,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final (icon, tint) = e.income
         ? (p.mintIcon, p.mintTint)
         : color == null
-        ? (p.indigo, p.indigoTint)
+        ? (p.indigoIcon, p.indigoTint)
         : (p.categories[color].$3, p.categories[color].$2);
     final verb = e.income ? 'Receber' : 'Pagar';
     // A row is one item for screen readers, with its buttons after it.
@@ -1114,10 +1114,10 @@ class _HomeScreenState extends State<HomeScreen> {
           runSpacing: 10,
           children: [
             for (final e in {'all': 'Tudo', ...priorityLabels}.entries)
-              ChoiceChip(
-                label: Text(e.value),
+              OptionChip(
+                e.value,
                 selected: filter == e.key,
-                onSelected: (_) => setState(() => filter = e.key),
+                onSelected: () => setState(() => filter = e.key),
               ),
             TextButton.icon(
               onPressed: saving ? null : seedEssentials,
@@ -1385,10 +1385,10 @@ class _HomeScreenState extends State<HomeScreen> {
           runSpacing: 10,
           children: [
             for (final b in babies)
-              ChoiceChip(
-                label: Text(b['name'] as String),
+              OptionChip(
+                b['name'] as String,
                 selected: b['id'] == selected['id'],
-                onSelected: (_) => setState(() => babyId = b['id'] as String),
+                onSelected: () => setState(() => babyId = b['id'] as String),
               ),
           ],
         ),
@@ -1399,7 +1399,11 @@ class _HomeScreenState extends State<HomeScreen> {
               CircleAvatar(
                 radius: 28,
                 backgroundColor: p.skyTint,
-                child: Icon(Icons.child_care_rounded, color: p.sky, size: 28),
+                child: Icon(
+                  Icons.child_care_rounded,
+                  color: p.skyIcon,
+                  size: 28,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1957,6 +1961,20 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               'Ninho 0.1 · Planejamento familiar\n\nRecursos de cobrança de assinatura não estão ativos nesta versão. O compartilhamento funciona por família.\n\nEm Saúde, registre informações recebidas dos profissionais. O aplicativo não substitui o acompanhamento clínico.${widget.ads.enabled ? '\n\nO app é gratuito e mostra um anúncio ao abrir, no máximo a cada 4 horas. Dados de finanças, família e saúde nunca são usados em anúncios.' : ''}',
               style: TextStyle(color: p.muted, height: 1.6),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => showLicensePage(
+                context: context,
+                applicationName: 'Ninho',
+                applicationVersion: '0.1',
+                applicationIcon: const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: NinhoLogo(size: 56),
+                ),
+              ),
+              icon: const Icon(Icons.description_outlined, size: 18),
+              label: const Text('Licenças de código aberto'),
             ),
           ],
         ),

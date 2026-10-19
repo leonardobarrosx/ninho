@@ -216,6 +216,33 @@ class Metric extends StatelessWidget {
   }
 }
 
+/// A chip in a group where only one can be on, such as a filter. On the web,
+/// a chip reports a checked state and would read as a checkbox; in a
+/// mutually exclusive group, screen readers announce it as one option of
+/// the group instead (a radio button).
+class OptionChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+  const OptionChip(
+    this.label, {
+    super.key,
+    required this.selected,
+    required this.onSelected,
+  });
+  @override
+  Widget build(BuildContext context) => MergeSemantics(
+    child: Semantics(
+      inMutuallyExclusiveGroup: true,
+      child: ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => onSelected(),
+      ),
+    ),
+  );
+}
+
 /// A small colored label, such as a priority. It reads as plain text, not as
 /// a control.
 class Tag extends StatelessWidget {
