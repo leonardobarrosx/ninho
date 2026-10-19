@@ -1,8 +1,14 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ninho/main.dart';
+import 'package:ninho/screens.dart';
 import 'package:ninho/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+// Headlines keep their last two words together with a no-break space.
+const overview = 'Seu próximo passo, mais\u00a0claro.';
+const health = 'Cuidado também é\u00a0organização.';
 
 /// Opens the demonstration at phone size.
 Future<void> openDemo(
@@ -40,7 +46,7 @@ void main() {
         ('Finanças', 'Finanças da família'),
         ('Bebê', 'Cada fase, registrada.'),
         ('Enxoval', 'Planos que ganham forma.'),
-        ('Saúde', 'Cuidado também é organização.'),
+        ('Saúde', health),
       ]) {
         await tester.tap(find.text(tab).last);
         await tester.pumpAndSettle();
@@ -53,7 +59,7 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.tap(find.byTooltip('Voltar'));
       await tester.pumpAndSettle();
-      expect(find.text('Cuidado também é organização.'), findsOneWidget);
+      expect(find.text(health), findsOneWidget);
     });
   }
 
@@ -68,7 +74,6 @@ void main() {
 
   testWidgets('each tab keeps its own scroll position', (tester) async {
     await openDemo(tester);
-    const overview = 'Seu próximo passo, mais claro.';
     await tester.drag(
       find.byType(SingleChildScrollView).first,
       const Offset(0, -700),
@@ -96,10 +101,10 @@ void main() {
     await openFamily(tester);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.text('Cuidado também é organização.'), findsOneWidget);
+    expect(find.text(health), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.text('Seu próximo passo, mais claro.'), findsOneWidget);
+    expect(find.text(overview), findsOneWidget);
   });
 
   testWidgets('the account menu switches the theme and remembers it', (
@@ -151,6 +156,81 @@ void main() {
     expect(find.text('Nenhum compromisso pendente.'), findsOneWidget);
     expect(find.text('Realizados'), findsOneWidget);
     expect(find.text('Reabrir'), findsOneWidget);
+  });
+
+  testWidgets('money amounts use figures of equal width', (tester) async {
+    await openDemo(tester);
+    final amount = RegExp(r'^R\$\s[\d.]+,\d\d$');
+    for (final tab in ['Visão geral', 'Finanças']) {
+      await tester.tap(find.text(tab).last);
+      await tester.pumpAndSettle();
+      // Summary cards, category bars and entry rows.
+      final amounts = tester.widgetList<Text>(
+        find.byWidgetPredicate(
+          (w) => w is Text && amount.hasMatch(w.data ?? ''),
+        ),
+      );
+      expect(amounts, isNotEmpty);
+      for (final text in amounts) {
+        expect(
+          text.style?.fontFeatures,
+          contains(const FontFeature.tabularFigures()),
+          reason: '${text.data} in $tab',
+        );
+      }
+    }
+  });
+
+  testWidgets('Bebê shows the growth hint once until a line can be drawn', (
+    tester,
+  ) async {
+    const hint = 'Registre ao menos duas medidas para ver a evolução.';
+    await openDemo(tester);
+    final store = tester.widget<HomeScreen>(find.byType(HomeScreen)).store;
+    await tester.tap(find.text('Bebê').last);
+    await tester.pumpAndSettle();
+    expect(find.text(hint), findsOneWidget);
+    expect(find.text('Peso e comprimento'), findsOneWidget);
+    // Two weights and one length: the weight line, and the hint for length.
+    await store.save('measurements', {
+      'baby_id': 'b1',
+      'measured_at': '2026-08-20',
+      'weight_grams': 3250,
+      'length_mm': 490,
+    });
+    await store.save('measurements', {
+      'baby_id': 'b1',
+      'measured_at': '2026-09-20',
+      'weight_grams': 4120,
+      'length_mm': null,
+    });
+    await tester.pumpAndSettle();
+    expect(find.text(hint), findsOneWidget);
+    expect(find.text('Comprimento'), findsOneWidget);
+    expect(find.text('4,12 kg em 20/09/2026'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('icons on the mint tint keep 3:1 contrast', (tester) async {
+    double contrast(Color a, Color b) {
+      final (x, y) = (a.computeLuminance(), b.computeLuminance());
+      return (max(x, y) + .05) / (min(x, y) + .05);
+    }
+
+    for (final p in [Palette.light, Palette.dark]) {
+      // Entry rows and Saúde put the icon on the tint; the summary card puts
+      // it on a faint ink circle over the tint.
+      final circle = Color.alphaBlend(p.ink.withValues(alpha: .08), p.mintTint);
+      expect(contrast(p.mintIcon, p.mintTint), greaterThanOrEqualTo(3));
+      expect(contrast(p.mintIcon, circle), greaterThanOrEqualTo(3));
+    }
+    await openDemo(tester);
+    await tester.tap(find.text('Finanças').last);
+    await tester.pumpAndSettle();
+    final income = find.byWidgetPredicate(
+      (w) => w is Icon && w.semanticLabel == 'Receita',
+    );
+    expect(tester.widget<Icon>(income.first).color, Palette.light.mintIcon);
   });
 
   testWidgets('screen readers get items, headings and named buttons', (

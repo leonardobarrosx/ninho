@@ -203,6 +203,7 @@ class Metric extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                   letterSpacing: -.7,
                   color: strong,
+                  fontFeatures: tabularFigures,
                 ),
               ),
             ),
@@ -369,28 +370,20 @@ class GrowthChart extends StatelessWidget {
     required this.unit,
     required this.divisor,
   });
+
+  /// Whether [rows] have the two measures of [field] that a line needs.
+  static bool plots(List<Json> rows, String field) =>
+      rows.where((r) => r[field] != null).length >= 2;
+
   @override
   Widget build(BuildContext context) {
+    if (!plots(rows, field)) return GrowthHint(title);
     final p = Palette.of(context);
     final sorted = rows.where((r) => r[field] != null).toList()
       ..sort(
         (a, b) =>
             (a['measured_at'] as String).compareTo(b['measured_at'] as String),
       );
-    if (sorted.length < 2) {
-      return Panel(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SectionTitle(title),
-            Text(
-              'Registre ao menos duas medidas para ver a evolução.',
-              style: TextStyle(color: p.muted),
-            ),
-          ],
-        ),
-      );
-    }
     return Panel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,7 +406,13 @@ class GrowthChart extends StatelessWidget {
                   divisor,
                   line: p.brand,
                   grid: p.border,
-                  label: p.muted,
+                  label: TextStyle(
+                    // A painter does not inherit the app font.
+                    fontFamily: DefaultTextStyle.of(context).style.fontFamily,
+                    fontSize: 11,
+                    color: p.muted,
+                    fontFeatures: tabularFigures,
+                  ),
                 ),
               ),
             ),
@@ -438,11 +437,34 @@ class GrowthChart extends StatelessWidget {
   }
 }
 
+/// Stands in for growth charts until there are two measures to draw.
+class GrowthHint extends StatelessWidget {
+  final String title;
+  const GrowthHint(this.title, {super.key});
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: double.infinity,
+    child: Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionTitle(title),
+          Text(
+            'Registre ao menos duas medidas para ver a evolução.',
+            style: TextStyle(color: Palette.of(context).muted),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class LinePainter extends CustomPainter {
   final List<Json> rows;
   final String field;
   final int divisor;
-  final Color line, grid, label;
+  final Color line, grid;
+  final TextStyle label;
   LinePainter(
     this.rows,
     this.field,
@@ -478,7 +500,7 @@ class LinePainter extends CustomPainter {
       final text = TextPainter(
         text: TextSpan(
           text: decimal(max - delta * i / 2, digits: 1),
-          style: TextStyle(fontSize: 11, color: label),
+          style: label,
         ),
         textDirection: TextDirection.ltr,
       )..layout();
