@@ -13,6 +13,10 @@ Vetores do designer, sem fonte externa (o lettering está em curvas):
 - `app-icon-maskable.svg`: o mesmo ícone com margem maior, para máscaras redondas.
 - `play-icon-512.png`: o ícone da Google Play (512 × 512, PNG de 32 bits). Ele é quadrado e sem cantos arredondados, porque a Play aplica a máscara.
 
+Montados aqui com esses vetores:
+
+- `feature-graphic.svg` e `feature-graphic.png`: a imagem de destaque da Google Play (1024 × 500). Veja [Imagem de destaque](#imagem-de-destaque).
+
 Versões de cor: `color` usa as cores da marca, `plum` é a versão de uma cor em ameixa, `white` é branca e `reverse` é a versão clara para fundos escuros.
 
 | Cor | Hex | No app |
@@ -43,3 +47,25 @@ Versões de cor: `color` usa as cores da marca, `plum` é a versão de uma cor e
 - Não aplique sombra nem cantos arredondados no ícone da Play.
 
 Segundo o designer, os vetores são reconstruções geométricas da prancha original, e o lettering pode diferir do desenho original. Confirme com quem desenhou antes de imprimir ou ampliar muito.
+
+## Imagem de destaque
+
+`feature-graphic.svg` é a fonte, e `feature-graphic.png` é o arquivo enviado à Play: 1024 × 500, PNG RGB de 24 bits, sem canal alfa, como a Play exige.
+
+- **Fundo:** laranja de ponta a ponta. A Play pede cores vivas e desaconselha fundos quase brancos, que se confundem com a loja. Por isso o pêssego ficou de fora.
+- **Logo:** a horizontal `reverse` (símbolo creme, nome branco) a 90%, centralizada.
+- **Frase:** a da tela de entrada, "Mais clareza nas contas. Mais espaço para viver essa fase.", em Roboto Bold 44 px, a fonte do app. Ela é ameixa, como o texto sobre o laranja no app, com contraste de 5,2:1. Branco e creme sobre o laranja ficam em 2,3:1 e 2,2:1, e por isso só aparecem na logo.
+- **Cantos de baixo:** só fundo. É o braço direito do símbolo, ampliado e espelhado, em `#FF9A71`, o creme a 15% sobre o laranja. Ele estende o ícone sem repeti-lo, como a Play recomenda.
+- **Sem personagens nem rostos:** a ficha não pode parecer voltada a crianças, porque o app é para maiores de 18 anos.
+
+A logo e a frase ficam a pelo menos 120 px das bordas, que a Play corta ou cobre em alguns formatos. A frase continua legível com a imagem reduzida a 360 px de largura.
+
+A frase está em curvas, como o lettering, para o SVG não depender de fonte instalada. As curvas saíram da Roboto Bold do SDK do Flutter (`bin/cache/artifacts/material_fonts/roboto-bold.ttf`), com kerning, pela PyMuPDF: `Page.insert_htmlbox` e depois `get_svg_image(text_as_path=True)`. Para mudar ou traduzir a frase, gere as curvas de novo do mesmo jeito.
+
+Para exportar o PNG, rode no PowerShell, na raiz do repositório. O `Out-Null` faz o PowerShell esperar o Edge terminar:
+
+```powershell
+& "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --headless --disable-gpu --hide-scrollbars --force-device-scale-factor=1 --window-size=1024,500 --screenshot="$PWD\branding\feature-graphic.png" "file:///$PWD/branding/feature-graphic.svg" | Out-Null
+```
+
+O Edge grava direto um PNG RGB, sem canal alfa. O PNG desta pasta saiu desse comando.
