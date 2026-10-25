@@ -9,8 +9,10 @@ export PATH="$sdk/bin:$PATH"
 cd "$root/app"
 flutter config --no-analytics
 flutter pub get
+# The site serves Flutter's CanvasKit itself instead of loading it from
+# Google's CDN (www.gstatic.com).
 if [[ "${NINHO_DEMO:-false}" == "true" ]]; then
-  flutter build web --release
+  flutter build web --release --no-web-resources-cdn
 else
   : "${API_URL:?Set API_URL}"
   : "${SUPABASE_URL:?Set SUPABASE_URL}"
@@ -18,7 +20,7 @@ else
   # The privacy policy must name who controls the data and how to reach them.
   : "${PRIVACY_CONTROLLER:?Set PRIVACY_CONTROLLER}"
   : "${PRIVACY_EMAIL:?Set PRIVACY_EMAIL}"
-  flutter build web --release --dart-define="API_URL=$API_URL" --dart-define="SUPABASE_URL=$SUPABASE_URL" --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+  flutter build web --release --no-web-resources-cdn --dart-define="API_URL=$API_URL" --dart-define="SUPABASE_URL=$SUPABASE_URL" --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
 fi
 
 # Fill the controller and contact into the privacy and account deletion pages: HTML-escape the value,

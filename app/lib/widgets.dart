@@ -3,27 +3,149 @@ import 'package:url_launcher/url_launcher.dart';
 import 'domain.dart';
 import 'theme.dart';
 
-/// Shown over the app while a launch waits for the app open ad. Like the
-/// Android launch screen, it is the page background, here with the logo.
+/// How long an animation lasts, or no time at all when the person turned
+/// animations off in the system settings.
+Duration motion(BuildContext context, int milliseconds) =>
+    MediaQuery.maybeDisableAnimationsOf(context) ?? false
+    ? Duration.zero
+    : Duration(milliseconds: milliseconds);
+
+/// Shown over the app while a launch waits for the app open ad. It continues
+/// the Android launch screen: the same background and a 144 dp logo in the
+/// middle, which then breathes while the ad flow decides.
 class LaunchCover extends StatelessWidget {
   const LaunchCover({super.key});
   @override
   Widget build(BuildContext context) => AbsorbPointer(
     child: ColoredBox(
       color: Palette.of(context).background,
-      child: const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            NinhoLogo(size: 96),
-            SizedBox(height: 28),
-            SizedBox.square(
-              dimension: 22,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
+      child: Stack(
+        // It fills the screen, so no tap reaches the app behind it.
+        fit: StackFit.expand,
+        alignment: Alignment.center,
+        children: [
+          const Center(child: Breathing(child: NinhoLogo(size: 144))),
+          Center(
+            child: Transform.translate(
+              offset: const Offset(0, 124),
+              child: const SizedBox.square(
+                dimension: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    ),
+  );
+}
+
+/// Grows and shrinks its child a little, slowly, like breathing. Still when
+/// animations are off.
+class Breathing extends StatefulWidget {
+  final Widget child;
+  const Breathing({super.key, required this.child});
+  @override
+  State<Breathing> createState() => _BreathingState();
+}
+
+class _BreathingState extends State<Breathing>
+    with SingleTickerProviderStateMixin {
+  late final controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1800),
+  );
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (motion(context, 1) == Duration.zero) {
+      controller.stop();
+    } else if (!controller.isAnimating) {
+      controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ScaleTransition(
+    scale: Tween(
+      begin: 1.0,
+      end: 1.05,
+    ).animate(CurvedAnimation(parent: controller, curve: Curves.easeInOut)),
+    child: widget.child,
+  );
+}
+
+/// Cross-fades between whole screens, such as sign-in and the home screen.
+/// Each screen needs its own key.
+class ScreenSwitch extends StatelessWidget {
+  final Widget child;
+  const ScreenSwitch({super.key, required this.child});
+  @override
+  Widget build(BuildContext context) => AnimatedSwitcher(
+    duration: motion(context, 400),
+    switchInCurve: Curves.easeOutCubic,
+    switchOutCurve: Curves.easeInCubic,
+    child: child,
+  );
+}
+
+/// Cross-fades pages with a slight zoom when the tab changes, close to the
+/// Material "fade through". Each page needs its own key.
+class PageSwitch extends StatelessWidget {
+  final Widget child;
+  const PageSwitch({super.key, required this.child});
+  @override
+  Widget build(BuildContext context) => AnimatedSwitcher(
+    duration: motion(context, 300),
+    switchInCurve: Curves.easeOutCubic,
+    switchOutCurve: Curves.easeInCubic,
+    transitionBuilder: (child, animation) => FadeTransition(
+      opacity: animation,
+      child: ScaleTransition(
+        scale: Tween(begin: .97, end: 1.0).animate(animation),
+        child: child,
+      ),
+    ),
+    layoutBuilder: (current, previous) => Stack(
+      alignment: Alignment.topCenter,
+      children: [...previous, ?current],
+    ),
+    child: child,
+  );
+}
+
+/// A bar that grows to its value when it appears and slides to a new value
+/// when it changes, for the category chart and the goals.
+class GrowingBar extends StatelessWidget {
+  final double value;
+  final Color? color;
+  final String? semanticsLabel, semanticsValue;
+  const GrowingBar(
+    this.value, {
+    super.key,
+    this.color,
+    this.semanticsLabel,
+    this.semanticsValue,
+  });
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+    tween: Tween(begin: 0, end: value),
+    duration: motion(context, 700),
+    curve: Curves.easeOutCubic,
+    builder: (context, shown, _) => LinearProgressIndicator(
+      value: shown,
+      minHeight: 8,
+      borderRadius: BorderRadius.circular(99),
+      backgroundColor: Palette.of(context).surfaceAlt,
+      color: color,
+      semanticsLabel: semanticsLabel,
+      semanticsValue: semanticsValue,
     ),
   );
 }
@@ -54,6 +176,29 @@ class PageLink extends StatelessWidget {
   );
 }
 
+/// The eye button at the end of a password field.
+class PasswordToggle extends StatelessWidget {
+  final bool hidden;
+  final VoidCallback onPressed;
+  const PasswordToggle({
+    super.key,
+    required this.hidden,
+    required this.onPressed,
+  });
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: hidden ? 'Mostrar senha' : 'Ocultar senha',
+    onPressed: onPressed,
+    icon: Icon(
+      hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+    ),
+  );
+}
+
+/// A card that groups content. Screen readers go through its pieces one by
+/// one, in reading order, instead of reading the whole card as one block. A
+/// list row wrapped in `Semantics(container: true)` reads as one item, with
+/// its buttons after it.
 class Panel extends StatelessWidget {
   final Widget child;
   final EdgeInsets padding;
@@ -64,6 +209,7 @@ class Panel extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) => Card(
+    semanticContainer: false,
     child: Padding(padding: padding, child: child),
   );
 }
@@ -85,13 +231,17 @@ class Heading extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: b.maxWidth < 600 ? 26 : 32,
-                      fontWeight: FontWeight.w800,
-                      color: p.ink,
-                      letterSpacing: -.8,
+                  child: Semantics(
+                    container: true,
+                    header: true,
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: b.maxWidth < 600 ? 26 : 32,
+                        fontWeight: FontWeight.w800,
+                        color: p.ink,
+                        letterSpacing: -.8,
+                      ),
                     ),
                   ),
                 ),
@@ -110,7 +260,8 @@ class Heading extends StatelessWidget {
 }
 
 /// A summary card. Without [color] it is a plain surface; with it, a colored
-/// block whose text uses [onColor] (or the theme ink on light tints).
+/// block whose text uses [onColor] (or the theme ink on light tints). Screen
+/// readers read it as one item: label, value and note.
 class Metric extends StatelessWidget {
   final String label, value, note;
   final IconData icon;
@@ -130,58 +281,133 @@ class Metric extends StatelessWidget {
     final p = Palette.of(context);
     final strong = onColor ?? p.ink;
     final soft = onColor ?? p.muted;
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: color ?? p.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: color == null ? Border.all(color: p.border) : null,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
+    return MergeSemantics(
+      child: Container(
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: color ?? p.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: color == null ? Border.all(color: p.border) : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(color: soft, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: strong.withValues(alpha: .08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    icon,
+                    color: onColor ?? accent ?? p.brand,
+                    size: 20,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            // A new value, as when the month changes, rises into place.
+            AnimatedSwitcher(
+              duration: motion(context, 280),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween(
+                    begin: const Offset(0, .3),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              ),
+              layoutBuilder: (current, previous) => Stack(
+                alignment: Alignment.centerLeft,
+                children: [...previous, ?current],
+              ),
+              child: FittedBox(
+                key: ValueKey(value),
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
                 child: Text(
-                  label,
-                  style: TextStyle(color: soft, fontWeight: FontWeight.w600),
+                  value,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.7,
+                    color: strong,
+                    fontFeatures: tabularFigures,
+                  ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: strong.withValues(alpha: .08),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  icon,
-                  color: onColor ?? accent ?? p.brand,
-                  size: 20,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -.7,
-                color: strong,
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(note, style: TextStyle(color: soft, fontSize: 12)),
-        ],
+            const SizedBox(height: 8),
+            Text(note, style: TextStyle(color: soft, fontSize: 12)),
+          ],
+        ),
       ),
     );
   }
+}
+
+/// A chip in a group where only one can be on, such as a filter. On the web,
+/// a chip reports a checked state and would read as a checkbox; in a
+/// mutually exclusive group, screen readers announce it as one option of
+/// the group instead (a radio button).
+class OptionChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+  const OptionChip(
+    this.label, {
+    super.key,
+    required this.selected,
+    required this.onSelected,
+  });
+  @override
+  Widget build(BuildContext context) => MergeSemantics(
+    child: Semantics(
+      inMutuallyExclusiveGroup: true,
+      child: ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => onSelected(),
+      ),
+    ),
+  );
+}
+
+/// A small colored label, such as a priority. It reads as plain text, not as
+/// a control.
+class Tag extends StatelessWidget {
+  final String text;
+  final Color color;
+  const Tag(this.text, {super.key, required this.color});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(99),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: Palette.of(context).ink,
+      ),
+    ),
+  );
 }
 
 class MetricGrid extends StatelessWidget {
@@ -276,12 +502,16 @@ class SectionTitle extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
-              color: p.ink,
+          Semantics(
+            container: true,
+            header: true,
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                color: p.ink,
+              ),
             ),
           ),
           if (caption != null)
@@ -310,28 +540,20 @@ class GrowthChart extends StatelessWidget {
     required this.unit,
     required this.divisor,
   });
+
+  /// Whether [rows] have the two measures of [field] that a line needs.
+  static bool plots(List<Json> rows, String field) =>
+      rows.where((r) => r[field] != null).length >= 2;
+
   @override
   Widget build(BuildContext context) {
+    if (!plots(rows, field)) return GrowthHint(title);
     final p = Palette.of(context);
     final sorted = rows.where((r) => r[field] != null).toList()
       ..sort(
         (a, b) =>
             (a['measured_at'] as String).compareTo(b['measured_at'] as String),
       );
-    if (sorted.length < 2) {
-      return Panel(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SectionTitle(title),
-            Text(
-              'Registre ao menos duas medidas para ver a evolução.',
-              style: TextStyle(color: p.muted),
-            ),
-          ],
-        ),
-      );
-    }
     return Panel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,7 +576,13 @@ class GrowthChart extends StatelessWidget {
                   divisor,
                   line: p.brand,
                   grid: p.border,
-                  label: p.muted,
+                  label: TextStyle(
+                    // A painter does not inherit the app font.
+                    fontFamily: DefaultTextStyle.of(context).style.fontFamily,
+                    fontSize: 11,
+                    color: p.muted,
+                    fontFeatures: tabularFigures,
+                  ),
                 ),
               ),
             ),
@@ -379,11 +607,34 @@ class GrowthChart extends StatelessWidget {
   }
 }
 
+/// Stands in for growth charts until there are two measures to draw.
+class GrowthHint extends StatelessWidget {
+  final String title;
+  const GrowthHint(this.title, {super.key});
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: double.infinity,
+    child: Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionTitle(title),
+          Text(
+            'Registre ao menos duas medidas para ver a evolução.',
+            style: TextStyle(color: Palette.of(context).muted),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class LinePainter extends CustomPainter {
   final List<Json> rows;
   final String field;
   final int divisor;
-  final Color line, grid, label;
+  final Color line, grid;
+  final TextStyle label;
   LinePainter(
     this.rows,
     this.field,
@@ -419,7 +670,7 @@ class LinePainter extends CustomPainter {
       final text = TextPainter(
         text: TextSpan(
           text: decimal(max - delta * i / 2, digits: 1),
-          style: TextStyle(fontSize: 11, color: label),
+          style: label,
         ),
         textDirection: TextDirection.ltr,
       )..layout();

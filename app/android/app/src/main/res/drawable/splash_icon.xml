@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launch screen logo: the Abraço mark on its orange disc, as NinhoLogo draws it in the
+     app. It measures 288 dp, the size Android 12 expects for a launch screen icon, with the
+     144 dp disc inside the 192 dp circle that Android 12 shows. Older versions center the
+     same drawable on the background (launch_background.xml), so the logo sits where the app's
+     launch cover continues it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="288"
+    android:viewportHeight="288">
+    <group
+        android:translateX="72"
+        android:translateY="72"
+        android:scaleX="0.5625"
+        android:scaleY="0.5625">
+        <path
+            android:fillColor="#FF8A5C"
+            android:pathData="M128,0A128,128 0,1 1,128,256A128,128 0,1 1,128,0Z" />
+        <group
+            android:translateX="26"
+            android:translateY="26"
+            android:scaleX="0.8"
+            android:scaleY="0.8">
+            <path
+                android:fillColor="#FFF6EA"
+                android:pathData="M128 27C101 27 79 71 79 105C79 134 99 149 128 149C157 149 177 134 177 105C177 71 155 27 128 27Z" />
+            <path
+                android:fillColor="#FFF6EA"
+                android:pathData="M68 76C34 89 17 113 17 145C17 192 58 222 117 224C138 225 155 223 174 218C171 190 151 177 116 166C83 156 59 144 48 123C45 117 50 113 54 119C60 128 65 133 73 137C64 120 61 98 68 76Z" />
+            <path
+                android:fillColor="#FFF6EA"
+                android:pathData="M187 76C220 90 239 113 239 145C239 174 219 201 184 215C181 190 167 174 146 163C171 155 189 135 190 111C191 98 189 87 187 76Z" />
+        </group>
+    </group>
+</vector>

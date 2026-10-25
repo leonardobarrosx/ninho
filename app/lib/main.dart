@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'ads.dart';
@@ -10,12 +12,21 @@ import 'widgets.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerLicenses();
   if (configured) {
     await Supabase.initialize(url: supabaseUrl, anonKey: supabaseKey);
   }
   final theme = await savedTheme();
   runApp(NinhoApp(initialTheme: theme, ads: await AdMobAds.create()));
 }
+
+/// Adds the bundled Nunito's license to the open-source licenses page. Flutter
+/// lists the licenses of packages by itself, but not those of font assets.
+void registerLicenses() => LicenseRegistry.addLicense(() async* {
+  yield LicenseEntryWithLineBreaks([
+    'Nunito',
+  ], await rootBundle.loadString('assets/fonts/OFL.txt'));
+});
 
 class NinhoApp extends StatefulWidget {
   final NinhoTheme initialTheme;
@@ -101,36 +112,52 @@ class _NinhoAppState extends State<NinhoApp> {
       builder: (context, child) => Stack(
         children: [
           ExcludeSemantics(excluding: covering, child: child),
-          if (covering) const Positioned.fill(child: LaunchCover()),
+          // The cover fades away when the ad flow ends. The fade takes each
+          // child's key, so both need one of their own.
+          Positioned.fill(
+            child: AnimatedSwitcher(
+              duration: motion(context, 350),
+              child: covering
+                  ? const LaunchCover(key: ValueKey('cover'))
+                  : const SizedBox.shrink(key: ValueKey('app')),
+            ),
+          ),
         ],
       ),
-      home: recovery
-          ? RecoveryScreen(onDone: () => setState(() => recovery = false))
-          : store == null
-          ? AuthScreen(
-              theme: theme,
-              onTheme: setTheme,
-              onDemo: () {
-                setState(() => store = Store(demo: true));
-              },
-            )
-          : HomeScreen(
-              key: ValueKey(store),
-              store: store!,
-              ads: widget.ads,
-              theme: theme,
-              onTheme: setTheme,
-              onLogout: () async {
-                if (store!.demo) {
-                  setState(() {
-                    store!.dispose();
-                    store = null;
-                  });
-                } else {
-                  await Supabase.instance.client.auth.signOut();
-                }
-              },
-            ),
+      // Sign-in, recovery and the home screen cross-fade into each other.
+      home: ScreenSwitch(
+        child: recovery
+            ? RecoveryScreen(
+                key: const ValueKey('recovery'),
+                onDone: () => setState(() => recovery = false),
+              )
+            : store == null
+            ? AuthScreen(
+                key: const ValueKey('auth'),
+                theme: theme,
+                onTheme: setTheme,
+                onDemo: () {
+                  setState(() => store = Store(demo: true));
+                },
+              )
+            : HomeScreen(
+                key: ValueKey(store),
+                store: store!,
+                ads: widget.ads,
+                theme: theme,
+                onTheme: setTheme,
+                onLogout: () async {
+                  if (store!.demo) {
+                    setState(() {
+                      store!.dispose();
+                      store = null;
+                    });
+                  } else {
+                    await Supabase.instance.client.auth.signOut();
+                  }
+                },
+              ),
+      ),
     );
   }
 }
@@ -139,11 +166,16 @@ class AuthScreen extends StatefulWidget {
   final VoidCallback onDemo;
   final NinhoTheme theme;
   final ValueChanged<NinhoTheme> onTheme;
+
+  /// Whether to offer sign-in, which needs a configured backend. Null follows
+  /// the build configuration; tests pass true to see the form.
+  final bool? signIn;
   const AuthScreen({
     super.key,
     required this.onDemo,
     required this.theme,
     required this.onTheme,
+    this.signIn,
   });
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -152,8 +184,11 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   final email = TextEditingController(), password = TextEditingController();
   final key = GlobalKey<FormState>();
-  bool signup = false, busy = false;
+  bool signup = false, busy = false, hidden = true;
   String? message;
+  // Whether [message] reports a failure, in red, rather than a next step.
+  bool failed = false;
+  bool get online => widget.signIn ?? configured;
   @override
   void dispose() {
     email.dispose();
@@ -161,11 +196,16 @@ class _AuthScreenState extends State<AuthScreen> {
     super.dispose();
   }
 
+  void say(String text, {bool failure = false}) => setState(() {
+    message = text;
+    failed = failure;
+  });
+
   Future<void> submit({bool reset = false}) async {
-    if (!configured) return;
+    if (!online) return;
     if (reset) {
       if (!email.text.contains('@')) {
-        setState(() => message = 'Informe seu e-mail.');
+        say('Informe seu e-mail.', failure: true);
         return;
       }
     } else if (!key.currentState!.validate()) {
@@ -180,17 +220,17 @@ class _AuthScreenState extends State<AuthScreen> {
       if (reset) {
         await auth.resetPasswordForEmail(email.text.trim());
         if (mounted) {
-          setState(
-            () => message =
-                'Se houver uma conta, você receberá um e-mail para redefinir a senha.',
+          say(
+            'Se houver uma conta, você receberá um e-mail para redefinir a senha.',
           );
         }
       } else if (signup) {
         await auth.signUp(email: email.text.trim(), password: password.text);
+        // Lets the password manager offer to save the new account.
+        TextInput.finishAutofillContext();
         if (mounted) {
-          setState(
-            () => message =
-                'Confira seu e-mail para confirmar o cadastro. Depois, entre com sua senha.',
+          say(
+            'Confira seu e-mail para confirmar o cadastro. Depois, entre com sua senha.',
           );
         }
       } else {
@@ -198,15 +238,10 @@ class _AuthScreenState extends State<AuthScreen> {
           email: email.text.trim(),
           password: password.text,
         );
+        TextInput.finishAutofillContext();
       }
     } catch (e) {
-      if (mounted) {
-        setState(
-          () => message = e is AuthException
-              ? e.message
-              : 'Não foi possível conectar. Tente novamente.',
-        );
-      }
+      if (mounted) say(authError(e), failure: true);
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -230,90 +265,124 @@ class _AuthScreenState extends State<AuthScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              Text(
-                'Ninho',
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: Palette.of(context).ink,
+              Semantics(
+                header: true,
+                child: Text(
+                  'Ninho',
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: Palette.of(context).ink,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
+              // The no-break space keeps "essa fase" together on a phone.
               const Text(
-                'Mais clareza nas contas.\nMais espaço para viver essa fase.',
+                'Mais clareza nas contas.\nMais espaço para viver essa\u00a0fase.',
                 style: TextStyle(fontSize: 23, height: 1.4),
               ),
               const SizedBox(height: 28),
-              if (!configured)
+              if (!online)
                 const Padding(
                   padding: EdgeInsets.only(bottom: 16),
                   child: Text(
                     'Explore a demonstração. O ambiente ainda precisa ser conectado para criar contas e salvar dados reais.',
                   ),
                 ),
-              if (configured)
-                Form(
-                  key: key,
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        controller: email,
-                        keyboardType: TextInputType.emailAddress,
-                        autofillHints: const [AutofillHints.email],
-                        decoration: const InputDecoration(labelText: 'E-mail'),
-                        validator: (v) => v != null && v.contains('@')
-                            ? null
-                            : 'Informe seu e-mail',
-                      ),
-                      const SizedBox(height: 14),
-                      TextFormField(
-                        controller: password,
-                        obscureText: true,
-                        autofillHints: [
-                          signup
-                              ? AutofillHints.newPassword
-                              : AutofillHints.password,
-                        ],
-                        decoration: const InputDecoration(labelText: 'Senha'),
-                        validator: (v) => v != null && v.length >= 8
-                            ? null
-                            : 'Use pelo menos 8 caracteres',
-                        onFieldSubmitted: (_) {
-                          if (!busy) submit();
-                        },
-                      ),
-                      const SizedBox(height: 18),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          onPressed: busy ? null : submit,
-                          child: Text(
-                            busy
-                                ? 'Aguarde…'
-                                : signup
-                                ? 'Criar conta'
-                                : 'Entrar',
+              if (online)
+                // One autofill group, so the password manager fills and saves
+                // the e-mail and the password together. Leaving for the
+                // demonstration saves nothing.
+                AutofillGroup(
+                  onDisposeAction: AutofillContextAction.cancel,
+                  child: Form(
+                    key: key,
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: email,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          autofillHints: const [AutofillHints.email],
+                          decoration: const InputDecoration(
+                            labelText: 'E-mail',
+                          ),
+                          validator: (v) => v != null && v.contains('@')
+                              ? null
+                              : 'Informe seu e-mail',
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: password,
+                          obscureText: hidden,
+                          textInputAction: TextInputAction.done,
+                          autofillHints: [
+                            signup
+                                ? AutofillHints.newPassword
+                                : AutofillHints.password,
+                          ],
+                          decoration: InputDecoration(
+                            labelText: 'Senha',
+                            suffixIcon: PasswordToggle(
+                              hidden: hidden,
+                              onPressed: () => setState(() => hidden = !hidden),
+                            ),
+                          ),
+                          validator: (v) => v != null && v.length >= 8
+                              ? null
+                              : 'Use pelo menos 8 caracteres',
+                          onFieldSubmitted: (_) {
+                            if (!busy) submit();
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: busy ? null : submit,
+                            child: Text(
+                              busy
+                                  ? 'Aguarde…'
+                                  : signup
+                                  ? 'Criar conta'
+                                  : 'Entrar',
+                            ),
                           ),
                         ),
-                      ),
-                      TextButton(
-                        onPressed: busy
-                            ? null
-                            : () => setState(() => signup = !signup),
-                        child: Text(
-                          signup ? 'Já tenho uma conta' : 'Criar minha conta',
+                        TextButton(
+                          onPressed: busy
+                              ? null
+                              : () => setState(() => signup = !signup),
+                          child: Text(
+                            signup ? 'Já tenho uma conta' : 'Criar minha conta',
+                          ),
                         ),
-                      ),
-                      TextButton(
-                        onPressed: busy ? null : () => submit(reset: true),
-                        child: const Text('Esqueci minha senha'),
-                      ),
-                    ],
+                        TextButton(
+                          onPressed: busy ? null : () => submit(reset: true),
+                          child: const Text('Esqueci minha senha'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               if (message != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text(message!, semanticsLabel: message),
+                  // Read out as soon as it appears, like a failed sign-in.
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      message!,
+                      style: failed
+                          ? TextStyle(
+                              color: Palette.of(context).danger,
+                              fontWeight: FontWeight.w600,
+                            )
+                          : null,
+                    ),
+                  ),
                 ),
               SizedBox(
                 width: double.infinity,
@@ -352,12 +421,33 @@ class RecoveryScreen extends StatefulWidget {
 
 class _RecoveryScreenState extends State<RecoveryScreen> {
   final password = TextEditingController();
-  bool busy = false;
+  bool busy = false, hidden = true;
   String? error;
   @override
   void dispose() {
     password.dispose();
     super.dispose();
+  }
+
+  Future<void> save() async {
+    if (password.text.length < 8) {
+      setState(() => error = 'Use pelo menos 8 caracteres.');
+      return;
+    }
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(password: password.text),
+      );
+      widget.onDone();
+    } catch (e) {
+      if (mounted) setState(() => error = authError(e));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
   }
 
   @override
@@ -370,39 +460,47 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Definir nova senha', style: TextStyle(fontSize: 26)),
+              Semantics(
+                header: true,
+                child: const Text(
+                  'Definir nova senha',
+                  style: TextStyle(fontSize: 26),
+                ),
+              ),
               const SizedBox(height: 20),
               TextField(
                 controller: password,
-                obscureText: true,
-                decoration: const InputDecoration(
+                obscureText: hidden,
+                autofillHints: const [AutofillHints.newPassword],
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  if (!busy) save();
+                },
+                decoration: InputDecoration(
                   labelText: 'Nova senha (mínimo 8 caracteres)',
+                  suffixIcon: PasswordToggle(
+                    hidden: hidden,
+                    onPressed: () => setState(() => hidden = !hidden),
+                  ),
                 ),
               ),
-              if (error != null) Text(error!),
+              if (error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      error!,
+                      style: TextStyle(
+                        color: Palette.of(context).danger,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
               const SizedBox(height: 20),
               FilledButton(
-                onPressed: busy
-                    ? null
-                    : () async {
-                        if (password.text.length < 8) {
-                          setState(
-                            () => error = 'Use pelo menos 8 caracteres.',
-                          );
-                          return;
-                        }
-                        setState(() => busy = true);
-                        try {
-                          await Supabase.instance.client.auth.updateUser(
-                            UserAttributes(password: password.text),
-                          );
-                          widget.onDone();
-                        } catch (e) {
-                          if (mounted) setState(() => error = cleanError(e));
-                        } finally {
-                          if (mounted) setState(() => busy = false);
-                        }
-                      },
+                onPressed: busy ? null : save,
                 child: const Text('Salvar senha'),
               ),
             ],

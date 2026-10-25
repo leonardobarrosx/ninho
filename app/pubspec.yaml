@@ -21,3 +21,19 @@ dev_dependencies:
   flutter_lints: 5.0.0
 flutter:
   uses-material-design: true
+  # Nunito 3.602, the static weights of the official Google Fonts download.
+  # Its SIL Open Font License 1.1 ships with the fonts, as the license asks.
+  assets:
+    - assets/fonts/OFL.txt
+  fonts:
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito-Regular.ttf
+        - asset: assets/fonts/Nunito-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Nunito-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Nunito-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Nunito-ExtraBold.ttf
+          weight: 800

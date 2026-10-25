@@ -55,7 +55,10 @@ Future<void> openAccount(
     await tester.tap(find.text('Explorar demonstração'));
     await tester.pumpAndSettle();
   }
-  await tester.tap(find.text('Família').last);
+  // On a phone, the account lives in Família, opened from the account menu.
+  await tester.tap(find.byTooltip('Conta e ajustes'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Família e conta'));
   await tester.pumpAndSettle();
   await tester.ensureVisible(find.text('Excluir minha conta'));
   await tester.pumpAndSettle();
@@ -91,11 +94,19 @@ void main() {
     await tester.pumpWidget(NinhoApp(ads: ads));
     await tester.pump();
     expect(find.byType(LaunchCover), findsOneWidget);
+    expect(
+      tester.getSize(find.byType(LaunchCover)),
+      tester.view.physicalSize / tester.view.devicePixelRatio,
+      reason: 'the cover fills the screen',
+    );
     expect(ads.blocked!(), isFalse);
     await tester.tap(find.text('Explorar demonstração'), warnIfMissed: false);
     await tester.pump();
     expect(find.text('Saldo previsto'), findsNothing, reason: 'taps wait');
     ads.done.complete();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(find.byType(LaunchCover), findsOneWidget, reason: 'it fades out');
     await tester.pumpAndSettle();
     expect(find.byType(LaunchCover), findsNothing);
     await tester.tap(find.text('Explorar demonstração'));

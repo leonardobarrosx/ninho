@@ -324,7 +324,7 @@ class Store extends ChangeNotifier {
         'title': 'Salário mensal',
         'kind': 'income',
         'category': 'Salário',
-        'amount_cents': 650000,
+        'amount_cents': 648730,
         'start_date': day(5),
         'recurrence': 'monthly',
       },
@@ -333,7 +333,7 @@ class Store extends ChangeNotifier {
         'title': 'Renda do trabalho autônomo',
         'kind': 'income',
         'category': 'Trabalho',
-        'amount_cents': 240000,
+        'amount_cents': 231840,
         'start_date': day(10),
         'recurrence': 'monthly',
       },
@@ -342,7 +342,7 @@ class Store extends ChangeNotifier {
         'title': 'Aluguel',
         'kind': 'expense',
         'category': 'Moradia',
-        'amount_cents': 180000,
+        'amount_cents': 184736,
         'start_date': day(10),
         'recurrence': 'monthly',
       },
@@ -351,7 +351,7 @@ class Store extends ChangeNotifier {
         'title': 'Supermercado',
         'kind': 'expense',
         'category': 'Alimentação',
-        'amount_cents': 120000,
+        'amount_cents': 118390,
         'start_date': day(15),
         'recurrence': 'monthly',
       },
@@ -360,7 +360,7 @@ class Store extends ChangeNotifier {
         'title': 'Internet e energia',
         'kind': 'expense',
         'category': 'Casa',
-        'amount_cents': 42000,
+        'amount_cents': 41763,
         'start_date': day(20),
         'recurrence': 'monthly',
       },
@@ -369,7 +369,7 @@ class Store extends ChangeNotifier {
         'title': 'Ultrassom',
         'kind': 'expense',
         'category': 'Saúde',
-        'amount_cents': 23000,
+        'amount_cents': 23650,
         'start_date': day(22),
         'recurrence': 'once',
       },
@@ -378,7 +378,7 @@ class Store extends ChangeNotifier {
         'title': 'Parcela do financiamento',
         'kind': 'expense',
         'category': 'Dívidas',
-        'amount_cents': 60000,
+        'amount_cents': 61248,
         'start_date': day(25),
         'recurrence': 'monthly',
       },
@@ -388,13 +388,13 @@ class Store extends ChangeNotifier {
         'id': 's1',
         'entry_id': '1',
         'occurrence': day(5),
-        'amount_cents': 650000,
+        'amount_cents': 648730,
       },
       {
         'id': 's3',
         'entry_id': '3',
         'occurrence': day(10),
-        'amount_cents': 180000,
+        'amount_cents': 184736,
       },
     ];
     data['goals'] = [
@@ -402,8 +402,8 @@ class Store extends ChangeNotifier {
         'id': 'g1',
         'title': 'Berço e colchão',
         'priority': 'essential',
-        'target_cents': 140000,
-        'saved_cents': 80000,
+        'target_cents': 138990,
+        'saved_cents': 74215,
         'quantity': 1,
         'acquired': 0,
         'target_date': iso(now.add(const Duration(days: 90))),
@@ -413,8 +413,8 @@ class Store extends ChangeNotifier {
         'id': 'g2',
         'title': 'Roupas para os primeiros meses',
         'priority': 'essential',
-        'target_cents': 60000,
-        'saved_cents': 20000,
+        'target_cents': 58670,
+        'saved_cents': 21430,
         'quantity': 20,
         'acquired': 5,
         'target_date': iso(now.add(const Duration(days: 120))),
@@ -423,8 +423,8 @@ class Store extends ChangeNotifier {
         'id': 'g3',
         'title': 'Carrinho compacto',
         'priority': 'comfort',
-        'target_cents': 180000,
-        'saved_cents': 40000,
+        'target_cents': 174990,
+        'saved_cents': 38520,
         'quantity': 1,
         'acquired': 0,
         'target_date': iso(now.add(const Duration(days: 150))),
@@ -435,8 +435,8 @@ class Store extends ChangeNotifier {
         'id': 'd1',
         'title': 'Financiamento',
         'creditor': 'Exemplo',
-        'balance_cents': 600000,
-        'installment_cents': 60000,
+        'balance_cents': 551232,
+        'installment_cents': 61248,
         'due_day': 25,
         'notes': 'Parcela já cadastrada em Finanças.',
       },
@@ -480,6 +480,33 @@ class Store extends ChangeNotifier {
 }
 
 String cleanError(Object e) => e.toString().replaceFirst('Exception: ', '');
+
+/// A sign-in, sign-up or password failure in Portuguese. Supabase Auth
+/// answers in English, so its error code picks the text. Anything that is
+/// not an answer from Auth reads as a connection problem.
+String authError(Object e) {
+  if (e is! AuthException || e is AuthRetryableFetchException) {
+    return 'Não foi possível conectar. Tente novamente.';
+  }
+  return switch (e.code) {
+    'invalid_credentials' => 'E-mail ou senha incorretos.',
+    'email_not_confirmed' =>
+      'Confirme seu e-mail pelo link que enviamos e tente de novo.',
+    'user_already_exists' || 'email_exists' =>
+      'Já existe uma conta com este e-mail. Entre com sua senha.',
+    'weak_password' => 'Escolha uma senha mais forte, com letras e números.',
+    'same_password' => 'Use uma senha diferente da atual.',
+    'email_address_invalid' ||
+    'validation_failed' => 'Confira o e-mail digitado.',
+    'signup_disabled' => 'Novos cadastros estão fechados no momento.',
+    'over_email_send_rate_limit' || 'over_request_rate_limit' =>
+      'Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo.',
+    'session_expired' ||
+    'session_not_found' ||
+    'refresh_token_not_found' => 'Sua sessão expirou. Entre de novo.',
+    _ => 'Não foi possível concluir. Tente novamente.',
+  };
+}
 
 String _errorText(String body) {
   try {
