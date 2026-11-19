@@ -86,7 +86,7 @@ Para ver a mensagem de consentimento fora da Europa, cadastre o aparelho de test
 
 ### Política de privacidade
 
-`https://SEU-SITE/privacidade`. A página vem de `app/web/privacidade.html` e cobre dados de saúde de crianças (LGPD, arts. 11 e 14), anúncios, compartilhamento, transferência internacional, retenção e direitos. O build da Vercel preenche o responsável e o e-mail com `PRIVACY_CONTROLLER` e `PRIVACY_EMAIL`. **Peça uma revisão jurídica do texto antes de publicar.** Ele descreve o que o código faz hoje, mas não substitui um advogado.
+`https://SEU-SITE/privacidade`. A página vem de `site/privacidade.html` e cobre dados de saúde de crianças (LGPD, arts. 11 e 14), anúncios, compartilhamento, transferência internacional, retenção e direitos. O build da Vercel preenche o responsável e o e-mail com `PRIVACY_CONTROLLER` e `PRIVACY_EMAIL`. **Peça uma revisão jurídica do texto antes de publicar.** Ele descreve o que o código faz hoje, mas não substitui um advogado.
 
 ### Acesso ao app
 

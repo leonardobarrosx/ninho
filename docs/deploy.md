@@ -43,7 +43,9 @@ Para uma prévia sem backend, defina `NINHO_DEMO=true`. O botão de demonstraç�
 
 O build publica, além do app, a política de privacidade em `/privacidade` e as instruções de exclusão de conta em `/excluir-conta`. Essas são as URLs pedidas pelo Play Console.
 
-Depois de obter o domínio da Vercel, configure a origem na API e o redirecionamento no Supabase Auth. Verifique cadastro, confirmação, login, recuperação de senha e acesso de duas famílias distintas.
+A raiz do site é a página de apresentação (`site/`), e o app fica em `/app/`. O link `/app/?demo` abre direto a demonstração. O script monta tudo em `dist/`, a pasta de saída da Vercel.
+
+Depois de obter o domínio da Vercel, configure a origem na API e o redirecionamento no Supabase Auth. Use `https://SEU_DOMINIO/app/` como Site URL e nas URLs de redirecionamento. Se um link de e-mail antigo cair na raiz com `?code=` ou um token, a página de apresentação o repassa para `/app/`. Em `ALLOWED_ORIGINS` nada muda: a origem continua sendo o domínio, sem caminho. Verifique cadastro, confirmação, login, recuperação de senha e acesso de duas famílias distintas.
 
 ## Android de produção
 

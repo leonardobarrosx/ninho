@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>Ninho</title>
+  <!-- Proposal A ("Abraço"), tuned for browser tabs: a larger mark than the app icon and a wider gap around the egg, so it still reads at 16 px. Source: branding/app-icon.svg -->
+  <rect width="256" height="256" rx="66" fill="#FF8A5C"/>
+  <g fill="#FFF6EA" transform="translate(12.8 14.4) scale(.9)">
+    <path d="M68 76C34 89 17 113 17 145C17 192 58 222 117 224C138 225 155 223 174 218C171 190 151 177 116 166C83 156 59 144 48 123C45 117 50 113 54 119C60 128 65 133 73 137C64 120 61 98 68 76Z"/>
+    <path d="M187 76C220 90 239 113 239 145C239 174 219 201 184 215C181 190 167 174 146 163C171 155 189 135 190 111C191 98 189 87 187 76Z"/>
+    <path d="M128 27C101 27 79 71 79 105C79 134 99 149 128 149C157 149 177 134 177 105C177 71 155 27 128 27Z" stroke="#FF8A5C" stroke-width="12"/>
+  </g>
+</svg>
