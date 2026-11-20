@@ -116,6 +116,8 @@ class GiftListPage extends StatefulWidget {
 
 class _GiftListPageState extends State<GiftListPage> {
   bool saving = false;
+  // The price of Plus on Google Play, asked once per visit to this screen.
+  Future<String?>? price;
   Store get s => widget.store;
   Palette get p => Palette.of(context);
   Json? get list => s.rows('gift_lists').firstOrNull;
@@ -338,9 +340,13 @@ class _GiftListPageState extends State<GiftListPage> {
             ),
           ),
         const SizedBox(height: 10),
-        Text(
-          'R\$ 10, pago uma vez. Vale para a conta toda, sem mensalidade.',
-          style: TextStyle(fontWeight: FontWeight.w700, color: p.ink),
+        // The price is the one set on Google Play, as the app gets it there.
+        FutureBuilder(
+          future: price ??= s.billing?.price() ?? Future.value(null),
+          builder: (context, snap) => Text(
+            '${snap.data == null ? 'Pago' : '${snap.data}, pago'} uma vez. Vale para a conta toda, sem mensalidade.',
+            style: TextStyle(fontWeight: FontWeight.w700, color: p.ink),
+          ),
         ),
         const SizedBox(height: 6),
         Text(

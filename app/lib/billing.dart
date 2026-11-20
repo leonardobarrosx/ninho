@@ -51,6 +51,18 @@ class PlayBilling {
   late final StreamSubscription<List<PurchaseDetails>> _updates;
   Completer<String>? _waiting;
 
+  /// The price of Plus as Google Play shows it, in the person's currency.
+  /// Null when Google Play does not answer or the product is not on sale.
+  Future<String?> price() async {
+    try {
+      if (!await _iap.isAvailable()) return null;
+      final found = await _iap.queryProductDetails({plusProduct});
+      return found.productDetails.firstOrNull?.price;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Opens Google Play's purchase sheet. Completes with the message for the
   /// person once the purchase ends, or throws when it could not start.
   Future<String> buy() async {
