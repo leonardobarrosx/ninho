@@ -36,7 +36,7 @@ Aplique as migrações antes de publicar uma versão nova do app: o app lê as t
   ```
 
   A página pública fica em `/lista/<endereço>` e chama a API; `/lista/exemplo` mostra uma lista de exemplo, sem API.
-- `202611210001_plus_purchase.sql`: compra do Plus pelo Mercado Pago. Guarda cada pagamento e libera ou retira o Plus da conta. Veja "Mercado Pago" abaixo.
+- `202611210001_plus_purchase.sql`: compra do Plus pela Google Play. Guarda cada compra e libera ou retira o Plus da conta. Veja "Google Play Billing" abaixo.
 
 ## Render
 
@@ -49,24 +49,24 @@ Crie um serviço a partir deste repositório usando o blueprint `render.yaml`, o
 - `SUPABASE_PUBLISHABLE_KEY`: chave publishable ou anon, nunca service role.
 - `SUPABASE_SECRET_KEY`: chave secreta (ou service role) do projeto. A API a usa para excluir, pela API admin do Auth, o usuário da sessão verificada, para a conferência diária de preços e para as páginas públicas das listas de presentes. Sem ela, essas três respondem que estão indisponíveis; a exclusão de conta é exigida pela Google Play. Ela nunca vai para o app nem para a Vercel.
 - `CRON_SECRET`: um valor aleatório longo (por exemplo, `openssl rand -hex 32`), o mesmo guardado no Vault acima. Sem ele, `/internal/refresh-prices` responde 404.
-- `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET` e `APP_URL`: compra do Plus, descrita em "Mercado Pago" abaixo. Sem o token, o botão de compra responde que ela ainda não está disponível.
+- `GOOGLE_PLAY_SERVICE_ACCOUNT` e `GOOGLE_PLAY_PACKAGE`: compra do Plus, descrita em "Google Play Billing" abaixo. Sem a conta de serviço, a compra responde que ainda não está disponível.
 - `ALLOWED_ORIGINS`: URLs web exatas, separadas por vírgula, sem barra final. Inclua só o domínio de produção e as prévias que forem necessárias.
 
 O blueprint usa o plano gratuito como ponto de partida. Confirme limites e custos na conta antes de criar o serviço. O processo lê `PORT`, aceita encerramento gracioso e roda como usuário sem privilégios no contêiner.
 
-## Mercado Pago
+## Google Play Billing
 
-O Plus é vendido na versão web, pelo Checkout Pro do Mercado Pago, com Pix ou cartão à vista. Boleto fica de fora porque leva dias para compensar. O dinheiro cai na conta do Mercado Pago dona do token. O app Android não mostra o botão de compra: na Google Play, recursos digitais vendidos dentro do app precisam usar o Google Play Billing. Quem compra na web tem o Plus no Android também, porque ele vale para a conta.
+O Plus é vendido só no app Android, pelo Google Play Billing. Ele vale para a conta, então quem compra no Android tem o Plus na web também; a web só indica a compra pelo app. Com o Plus, a família não vê o anúncio de abertura do app.
 
-1. Na conta do Mercado Pago que vai receber, cadastre uma chave Pix (Seu negócio › Pix), senão o checkout não oferece Pix.
-2. Em [Suas integrações](https://www.mercadopago.com.br/developers/panel/app), crie uma aplicação do tipo "Pagamentos online", com Checkout Pro.
-3. Em Credenciais de produção, copie o Access Token (`APP_USR-...`) para `MERCADOPAGO_ACCESS_TOKEN` no Render. Ele nunca vai para o app, para a Vercel nem para o repositório.
-4. Em Webhooks › Configurar notificações, modo produção, use `https://SUA_API/webhooks/mercadopago` e marque só o evento "Pagamentos". Salve, revele a "Assinatura secreta" e copie-a para `MERCADOPAGO_WEBHOOK_SECRET`.
-5. Em `APP_URL`, coloque o endereço do site, sem barra final (por exemplo, `https://ninho.app`). Quem paga volta para `APP_URL/app/?plus=retorno`.
+1. No Play Console, conclua o perfil de pagamentos (Configuração › Perfil de pagamentos). Sem ele, não é possível criar produtos.
+2. Envie um build com o Billing (este) para uma faixa de teste, mesmo que interna. A Play só libera produtos depois disso.
+3. Em Monetizar › Produtos › Produtos no app, crie o produto `ninho_plus`, com o preço em reais, e ative-o.
+4. No Google Cloud, no projeto vinculado ao Play Console, ative a "Google Play Android Developer API". Crie uma conta de serviço sem papéis e baixe uma chave JSON.
+5. No Play Console, em Usuários e permissões, convide o e-mail da conta de serviço com acesso ao app e as permissões "Ver dados financeiros" e "Gerenciar pedidos e assinaturas".
+6. No Render, cole o conteúdo inteiro do JSON em `GOOGLE_PLAY_SERVICE_ACCOUNT` e `br.com.ninho.app` em `GOOGLE_PLAY_PACKAGE`. O JSON nunca vai para o app, para a Vercel nem para o repositório.
+7. Em Configuração › Teste de licença, adicione as contas Google que vão testar: elas compram sem cobrança.
 
-A API nunca confia no aviso nem no retorno do navegador: ela lê o pagamento no Mercado Pago com o token antes de registrar. O Plus é liberado quando o pagamento está aprovado, em reais e com o valor cheio. Um estorno ou uma contestação desse pagamento retira o Plus. O webhook cobre quem fecha a aba antes de voltar, como num Pix pago depois. Sem a assinatura secreta, o webhook ainda funciona, porque cada aviso é conferido no Mercado Pago, mas deixe-a configurada.
-
-Para testar antes de vender, use as credenciais e as contas de teste do painel, troque o token no Render e volte ao de produção depois. Os pagamentos ficam em `public.plus_payments`.
+O app envia o token da compra para a API, que confere a compra na Google Play com a conta de serviço e só então registra e libera o Plus. O app conclui (reconhece) a compra só depois disso; se a API não registrar, a Google estorna em três dias. Cada compra leva um identificador derivado da conta do Ninho, e a API recusa uma compra feita por outra conta. Uma vez por dia, na mesma chamada da conferência de preços, a API lê as compras anuladas (reembolsos e contestações) e retira o Plus delas. As compras ficam em `public.plus_purchases`.
 
 ## Vercel
 

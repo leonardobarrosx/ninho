@@ -90,19 +90,40 @@ void main() {
     expect(appOpenUnit, testAppOpenUnit);
   });
 
-  test('a new install opens without an ad and waits one interval', () async {
+  test(
+    'a new install opens without an ad, and the next launch has one',
+    () async {
+      final backend = FakeBackend();
+      final before = DateTime.now();
+      final ads = await launch(backend);
+      expect(ads.coversLaunch, isFalse);
+      await ads.start(blocked: () => false);
+      expect(
+        backend.refreshed,
+        1,
+        reason: 'consent is checked on every launch',
+      );
+      expect(backend.loads, isEmpty);
+      expect(
+        (await savedNext()).isBefore(before.add(adInterval)),
+        isFalse,
+        reason: 'the next launch may show an ad',
+      );
+    },
+  );
+
+  test('a family with Plus gets no ads and no consent message', () async {
     final backend = FakeBackend();
-    final before = DateTime.now();
-    final ads = await launch(backend);
+    SharedPreferences.setMockInitialValues({
+      nextAdKey: past.millisecondsSinceEpoch,
+      adFreeKey: true,
+    });
+    final ads = await AdMobAds.create(backend: backend);
+    expect(ads.enabled, isFalse);
     expect(ads.coversLaunch, isFalse);
     await ads.start(blocked: () => false);
-    expect(backend.refreshed, 1, reason: 'consent is checked on every launch');
+    expect(backend.refreshed, 0);
     expect(backend.loads, isEmpty);
-    expect(
-      (await savedNext()).isBefore(before.add(adInterval)),
-      isFalse,
-      reason: 'the first ad waits a whole interval',
-    );
   });
 
   test('before the interval ends there is no cover and no ad', () async {
@@ -117,23 +138,20 @@ void main() {
     expect(backend.loads, isEmpty);
   });
 
-  test(
-    'a due launch shows a personalized ad and waits 4 h for the next',
-    () async {
-      final backend = FakeBackend();
-      final ads = await launch(backend, next: past);
-      expect(ads.coversLaunch, isTrue);
-      await ads.start(blocked: () => false);
-      expect(backend.loads, [false]);
-      expect((backend.loaded! as FakeAd).shown, isTrue);
-      expect(
-        (await savedNext()).isAfter(
-          DateTime.now().add(adInterval - const Duration(minutes: 1)),
-        ),
-        isTrue,
-      );
-    },
-  );
+  test('a due launch shows a personalized ad', () async {
+    final backend = FakeBackend();
+    final ads = await launch(backend, next: past);
+    expect(ads.coversLaunch, isTrue);
+    await ads.start(blocked: () => false);
+    expect(backend.loads, [false]);
+    expect((backend.loaded! as FakeAd).shown, isTrue);
+    expect(
+      (await savedNext()).isAfter(
+        DateTime.now().add(adInterval - const Duration(minutes: 1)),
+      ),
+      isTrue,
+    );
+  });
 
   test('without a fresh consent answer only non-personalized ads are asked '
       'for', () async {

@@ -1,11 +1,15 @@
 package api
 
 import (
-	"crypto/hmac"
+	"context"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
-	"encoding/hex"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
-	"io"
+	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,65 +19,100 @@ import (
 
 const otherUser = "0b8f3a3e-2c1d-4e5f-8a9b-0c1d2e3f4a5b"
 
-func TestPlusPurchase(t *testing.T) {
-	var mu sync.Mutex
-	owned := false
-	var preference map[string]any
-	var recorded []map[string]any
-	payments := map[string]string{
-		"111": `{"id":111,"status":"approved","transaction_amount":10,"currency_id":"BRL","external_reference":"ninho-plus:` + uid + `"}`,
-		"222": `{"id":222,"status":"approved","transaction_amount":1,"currency_id":"BRL","external_reference":"ninho-plus:` + uid + `"}`,
-		"333": `{"id":333,"status":"approved","transaction_amount":10,"currency_id":"BRL","external_reference":"ninho-plus:` + otherUser + `"}`,
-		"444": `{"id":444,"status":"approved","transaction_amount":10,"currency_id":"BRL","external_reference":"pedido-77"}`,
-		"555": `{"id":555,"status":"pending","transaction_amount":10.00,"currency_id":"BRL","external_reference":"ninho-plus:` + uid + `"}`,
+func TestAccountTag(t *testing.T) {
+	// Same vector as app/test/billing_test.dart.
+	if got := AccountTag(strings.ToUpper(uid)); got != "ff5d845404b541036a69263de085205eec5ba006fa5e3b083479cae0671b7544" {
+		t.Fatal(got)
 	}
-	mp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer APP_USR-token" {
-			t.Error("Mercado Pago calls must use the access token")
-		}
-		switch {
-		case r.Method == "POST" && r.URL.Path == "/checkout/preferences":
+}
+
+func serviceAccountJSON(t *testing.T, tokenURI string) (string, *rsa.PrivateKey) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	der, _ := x509.MarshalPKCS8PrivateKey(key)
+	raw, _ := json.Marshal(map[string]string{
+		"type": "service_account", "client_email": "ninho@exemplo.iam.gserviceaccount.com", "token_uri": tokenURI,
+		"private_key": string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})),
+	})
+	return string(raw), key
+}
+
+func TestPlusGooglePlay(t *testing.T) {
+	var mu sync.Mutex
+	var recorded []map[string]any
+	tokens := 0
+	purchases := map[string]string{
+		"token-bought-1": `{"purchaseState":0,"orderId":"GPA.1111","obfuscatedExternalAccountId":"` + AccountTag(uid) + `"}`,
+		"token-pending1": `{"purchaseState":2,"orderId":"GPA.2222","obfuscatedExternalAccountId":"` + AccountTag(uid) + `"}`,
+		"token-others-1": `{"purchaseState":0,"orderId":"GPA.3333","obfuscatedExternalAccountId":"` + AccountTag(otherUser) + `"}`,
+		"token-no-tag-1": `{"purchaseState":0,"orderId":"GPA.4444"}`,
+		"token-taken--1": `{"purchaseState":0,"orderId":"GPA.5555","obfuscatedExternalAccountId":"` + AccountTag(uid) + `"}`,
+	}
+	var key *rsa.PrivateKey
+	google := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			_ = r.ParseForm()
+			parts := strings.Split(r.Form.Get("assertion"), ".")
+			sig, _ := base64.RawURLEncoding.DecodeString(parts[2])
+			digest := sha256.Sum256([]byte(parts[0] + "." + parts[1]))
+			if len(parts) != 3 || rsa.VerifyPKCS1v15(&key.PublicKey, crypto.SHA256, digest[:], sig) != nil {
+				t.Error("the token request must carry a JWT signed with the service account's key")
+			}
+			claims, _ := base64.RawURLEncoding.DecodeString(parts[1])
+			if !strings.Contains(string(claims), "androidpublisher") {
+				t.Errorf("claims: %s", claims)
+			}
 			mu.Lock()
-			_ = json.NewDecoder(r.Body).Decode(&preference)
+			tokens++
 			mu.Unlock()
-			w.WriteHeader(201)
-			_, _ = w.Write([]byte(`{"id":"pref-1","init_point":"https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=pref-1"}`))
-		case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/v1/payments/"):
-			body, ok := payments[strings.TrimPrefix(r.URL.Path, "/v1/payments/")]
+			_, _ = w.Write([]byte(`{"access_token":"google-access","expires_in":3600}`))
+			return
+		}
+		if r.Header.Get("Authorization") != "Bearer google-access" {
+			t.Error("Google Play calls must use the access token")
+		}
+		const prefix = "/androidpublisher/v3/applications/br.com.ninho.app/purchases/"
+		switch path := strings.TrimPrefix(r.URL.Path, prefix); {
+		case strings.HasPrefix(path, "products/ninho_plus/tokens/"):
+			body, ok := purchases[strings.TrimPrefix(path, "products/ninho_plus/tokens/")]
 			if !ok {
 				w.WriteHeader(404)
 				return
 			}
 			_, _ = w.Write([]byte(body))
+		case path == "voidedpurchases":
+			if r.URL.Query().Get("token") == "" {
+				_, _ = w.Write([]byte(`{"voidedPurchases":[{"purchaseToken":"token-bought-1","orderId":"GPA.1111"}],"tokenPagination":{"nextPageToken":"page2"}}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"voidedPurchases":[{"purchaseToken":"token-unknown1"},{"purchaseToken":"bad token"}]}`))
 		default:
-			t.Errorf("unexpected Mercado Pago call %s %s", r.Method, r.URL.Path)
+			t.Errorf("unexpected Google call %s", r.URL.Path)
 		}
 	}))
-	defer mp.Close()
+	defer google.Close()
+	account, k := serviceAccountJSON(t, google.URL+"/token")
+	key = k
 	db := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/auth/v1/user":
 			_, _ = w.Write([]byte(`{"id":"` + uid + `"}`))
-		case "/rest/v1/plus_accounts":
-			if r.Header.Get("Authorization") != "Bearer valid-user-token" {
-				t.Error("the Plus lookup must use the user's session")
-			}
-			mu.Lock()
-			defer mu.Unlock()
-			if owned {
-				_, _ = w.Write([]byte(`[{"user_id":"` + uid + `"}]`))
-				return
-			}
-			_, _ = w.Write([]byte(`[]`))
-		case "/rest/v1/rpc/record_plus_payment":
+		case "/rest/v1/rpc/record_plus_purchase":
 			if r.Header.Get("Authorization") != "Bearer secret-key" {
-				t.Error("payments must be recorded with the secret key")
+				t.Error("purchases must be recorded with the secret key")
 			}
 			var args map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&args)
 			mu.Lock()
 			recorded = append(recorded, args)
 			mu.Unlock()
+			if args["p_token"] == "token-taken--1" {
+				w.WriteHeader(400)
+				_, _ = w.Write([]byte(`{"code":"P0001","message":"Purchase mismatch"}`))
+				return
+			}
 			_, _ = w.Write([]byte(`true`))
 		default:
 			t.Errorf("unexpected database call %s", r.URL.Path)
@@ -81,135 +120,99 @@ func TestPlusPurchase(t *testing.T) {
 	}))
 	defer db.Close()
 	cfg := Config{SupabaseURL: db.URL, PublishableKey: "public-key", SecretKey: "secret-key", Origins: []string{"https://ninho.example"},
-		MercadoPagoToken: "APP_USR-token", MercadoPagoWebhookSecret: "webhook-secret", MercadoPagoURL: mp.URL, AppURL: "https://ninho.example"}
+		PlayServiceAccount: account, PlayPackage: "br.com.ninho.app", GooglePlayURL: google.URL}
+	if err := cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
 	h := New(cfg)
-	call := func(method, path, body string, headers map[string]string) *httptest.ResponseRecorder {
-		var reader io.Reader
-		if body != "" {
-			reader = strings.NewReader(body)
-		}
-		r := httptest.NewRequest(method, path, reader)
+	send := func(body string, auth bool) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("POST", "/v1/plus/google", strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
-		for k, v := range headers {
-			r.Header.Set(k, v)
+		if auth {
+			r.Header.Set("Authorization", "Bearer valid-user-token")
 		}
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		return w
 	}
-	user := map[string]string{"Authorization": "Bearer valid-user-token", "Origin": "https://ninho.example"}
-
-	if w := call("POST", "/v1/plus/checkout", "", nil); w.Code != 401 {
-		t.Fatalf("checkout without a session: %d", w.Code)
-	}
-	w := call("POST", "/v1/plus/checkout", "", user)
-	if w.Code != 201 || !strings.Contains(w.Body.String(), "https://www.mercadopago.com.br/checkout") {
-		t.Fatalf("checkout: %d %s", w.Code, w.Body)
-	}
-	items := preference["items"].([]any)[0].(map[string]any)
-	if preference["external_reference"] != "ninho-plus:"+uid || items["unit_price"] != float64(10) || items["currency_id"] != "BRL" {
-		t.Fatalf("preference: %v", preference)
-	}
-	if back := preference["back_urls"].(map[string]any)["success"]; back != "https://ninho.example/app/?plus=retorno" {
-		t.Fatalf("back url: %v", back)
+	buy := func(token string) *httptest.ResponseRecorder {
+		return send(`{"product_id":"ninho_plus","purchase_token":"`+token+`"}`, true)
 	}
 
-	// The browser comes back with the payment id: only the buyer's own approved payment grants Plus.
-	confirm := func(id string) *httptest.ResponseRecorder {
-		return call("POST", "/v1/plus/confirm", `{"payment_id":"`+id+`"}`, user)
+	if w := send(`{"product_id":"ninho_plus","purchase_token":"token-bought-1"}`, false); w.Code != 401 {
+		t.Fatalf("without a session: %d", w.Code)
 	}
-	if w := confirm("111"); w.Code != 200 || !strings.Contains(w.Body.String(), `"plus":true`) {
-		t.Fatalf("confirm: %d %s", w.Code, w.Body)
+	w := buy("token-bought-1")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"plus":true`) || !strings.Contains(w.Body.String(), `"state":"purchased"`) {
+		t.Fatalf("purchase: %d %s", w.Code, w.Body)
 	}
-	if last := recorded[len(recorded)-1]; last["p_paid"] != true || last["p_user_id"] != uid || last["p_amount_cents"] != float64(1000) {
+	if last := recorded[len(recorded)-1]; last["p_user_id"] != uid || last["p_state"] != "purchased" || last["p_order_id"] != "GPA.1111" || last["p_product_id"] != "ninho_plus" {
 		t.Fatalf("recorded: %v", last)
 	}
-	if w := confirm("222"); w.Code != 200 || recorded[len(recorded)-1]["p_paid"] != false {
-		t.Fatalf("an underpaid payment must not grant Plus: %d %v", w.Code, recorded[len(recorded)-1])
+	if w := buy("token-pending1"); w.Code != 200 || recorded[len(recorded)-1]["p_state"] != "pending" {
+		t.Fatalf("pending: %d %s", w.Code, w.Body)
 	}
-	if w := confirm("555"); w.Code != 200 || recorded[len(recorded)-1]["p_paid"] != false || !strings.Contains(w.Body.String(), "pending") {
-		t.Fatalf("a pending payment: %d %s", w.Code, w.Body)
-	}
-	for _, id := range []string{"333", "444", "999"} {
-		if w := confirm(id); w.Code != 404 {
-			t.Errorf("payment %s: %d %s", id, w.Code, w.Body)
+	before := len(recorded)
+	for token, want := range map[string]int{"token-others-1": 404, "token-no-tag-1": 404, "token-missing1": 404, "token-taken--1": 404} {
+		if w := buy(token); w.Code != want {
+			t.Errorf("%s: %d %s", token, w.Code, w.Body)
 		}
 	}
-	if w := call("POST", "/v1/plus/confirm", `{"payment_id":"1 OR 1=1"}`, user); w.Code != 400 {
-		t.Fatalf("invalid id: %d", w.Code)
+	if len(recorded) != before+1 {
+		t.Fatalf("only the purchase made for this account reaches the database: %d", len(recorded)-before)
 	}
-	mu.Lock()
-	owned = true
-	mu.Unlock()
-	if w := call("POST", "/v1/plus/checkout", "", user); w.Code != 409 {
-		t.Fatalf("checkout with Plus already: %d", w.Code)
+	for _, body := range []string{`{"product_id":"other","purchase_token":"token-bought-1"}`, `{"product_id":"ninho_plus","purchase_token":"a b"}`, `{"product_id":"ninho_plus","purchase_token":"token-bought-1","user":"x"}`} {
+		if w := send(body, true); w.Code != 400 {
+			t.Errorf("%s: %d", body, w.Code)
+		}
 	}
-
-	// The webhook needs Mercado Pago's signature, and records the payment it names.
-	sign := func(id, request, ts, secret string) string {
-		mac := hmac.New(sha256.New, []byte(secret))
-		mac.Write([]byte("id:" + id + ";request-id:" + request + ";ts:" + ts + ";"))
-		return "ts=" + ts + ",v1=" + hex.EncodeToString(mac.Sum(nil))
-	}
-	notice := `{"action":"payment.updated","type":"payment","data":{"id":"111"}}`
-	before := len(recorded)
-	if w := call("POST", "/webhooks/mercadopago?data.id=111&type=payment", notice, map[string]string{"X-Request-Id": "req-1", "X-Signature": sign("111", "req-1", "1742505638683", "wrong")}); w.Code != 401 {
-		t.Fatalf("forged notice: %d", w.Code)
-	}
-	if w := call("POST", "/webhooks/mercadopago?data.id=111&type=payment", notice, map[string]string{"X-Request-Id": "req-1"}); w.Code != 401 {
-		t.Fatalf("unsigned notice: %d", w.Code)
-	}
-	if len(recorded) != before {
-		t.Fatal("a rejected notice must not record anything")
-	}
-	if w := call("POST", "/webhooks/mercadopago?data.id=111&type=payment", notice, map[string]string{"X-Request-Id": "req-1", "X-Signature": sign("111", "req-1", "1742505638683", "webhook-secret")}); w.Code != 200 || len(recorded) != before+1 {
-		t.Fatalf("signed notice: %d %s", w.Code, w.Body)
-	}
-	if w := call("POST", "/webhooks/mercadopago?data.id=444&type=payment", `{"type":"payment","data":{"id":"444"}}`, map[string]string{"X-Request-Id": "req-2", "X-Signature": sign("444", "req-2", "1", "webhook-secret")}); w.Code != 200 || len(recorded) != before+1 {
-		t.Fatalf("another sale of the account is ignored: %d %d", w.Code, len(recorded))
-	}
-	if w := call("POST", "/webhooks/mercadopago?data.id=9&type=merchant_order", `{}`, nil); w.Code != 200 {
-		t.Fatalf("other notices are acknowledged: %d", w.Code)
+	if tokens != 1 {
+		t.Fatalf("the access token is reused until it expires: %d requests", tokens)
 	}
 
-	// Without the secret, a notice is only a hint: the payment is still read back from Mercado Pago.
-	cfg.MercadoPagoWebhookSecret = ""
-	unsigned := New(cfg)
-	r := httptest.NewRequest("POST", "/webhooks/mercadopago", strings.NewReader(`{"type":"payment","data":{"id":"111"}}`))
-	rec := httptest.NewRecorder()
-	unsigned.ServeHTTP(rec, r)
-	if rec.Code != 200 || len(recorded) != before+2 {
-		t.Fatalf("notice without a secret: %d", rec.Code)
+	// The daily check takes Plus back from voided purchases, across pages, keeping the purchase's own account.
+	s := &Server{cfg: cfg, client: http.DefaultClient, limits: map[string]quota{}}
+	s.play, _ = parseServiceAccount(account)
+	before = len(recorded)
+	n, err := s.syncVoided(context.Background())
+	if err != nil || n != 2 || len(recorded) != before+2 {
+		t.Fatalf("voided: %d %v %d", n, err, len(recorded)-before)
+	}
+	if v := recorded[before]; v["p_user_id"] != nil || v["p_state"] != "voided" || v["p_token"] != "token-bought-1" {
+		t.Fatalf("voided record: %v", v)
 	}
 
-	cfg.MercadoPagoToken = ""
+	cfg.PlayServiceAccount = ""
 	off := New(cfg)
-	r = httptest.NewRequest("POST", "/v1/plus/checkout", nil)
+	r := httptest.NewRequest("POST", "/v1/plus/google", strings.NewReader(`{"product_id":"ninho_plus","purchase_token":"token-bought-1"}`))
 	r.Header.Set("Authorization", "Bearer valid-user-token")
-	rec = httptest.NewRecorder()
+	r.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
 	off.ServeHTTP(rec, r)
 	if rec.Code != 503 {
-		t.Fatalf("without a token: %d", rec.Code)
+		t.Fatalf("without a service account: %d", rec.Code)
 	}
 }
 
 func TestPlusConfig(t *testing.T) {
-	base := Config{SupabaseURL: "https://x.supabase.co", PublishableKey: "sb_publishable_x", SecretKey: "sb_secret_x", Origins: []string{"https://ninho.example"}}
-	ok := base
-	ok.MercadoPagoToken, ok.AppURL = "APP_USR-token", "https://ninho.example"
-	if err := ok.Validate(); err != nil {
+	account, _ := serviceAccountJSON(t, "")
+	base := Config{SupabaseURL: "https://x.supabase.co", PublishableKey: "sb_publishable_x", SecretKey: "sb_secret_x", Origins: []string{"https://ninho.example"},
+		PlayServiceAccount: account, PlayPackage: "br.com.ninho.app"}
+	if err := base.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	for _, app := range []string{"", "http://ninho.example", "https://ninho.example/app", "ninho.example"} {
-		c := ok
-		c.AppURL = app
+	for name, change := range map[string]func(*Config){
+		"no package":      func(c *Config) { c.PlayPackage = "" },
+		"bad package":     func(c *Config) { c.PlayPackage = "ninho" },
+		"not JSON":        func(c *Config) { c.PlayServiceAccount = "abc" },
+		"bad key":         func(c *Config) { c.PlayServiceAccount = `{"client_email":"a@b","private_key":"x"}` },
+		"no secret key":   func(c *Config) { c.SecretKey = "" },
+		"no client email": func(c *Config) { c.PlayServiceAccount = strings.Replace(account, "client_email", "email", 1) },
+	} {
+		c := base
+		change(&c)
 		if c.Validate() == nil {
-			t.Errorf("APP_URL %q accepted", app)
+			t.Errorf("%s: accepted", name)
 		}
-	}
-	c := ok
-	c.SecretKey = ""
-	if c.Validate() == nil {
-		t.Error("a token without the secret key was accepted")
 	}
 }

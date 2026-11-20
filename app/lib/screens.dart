@@ -64,30 +64,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     s.addListener(changed);
-    if (plusReturn(Uri.base) case final payment?) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => plusPaid(payment));
-    }
-  }
-
-  /// Back from Mercado Pago: checks the payment and, with Plus on, opens the
-  /// gift list.
-  Future<void> plusPaid(({String id, String status}) payment) async {
-    var on = false;
-    await perform(() async {
-      if (payment.id.isEmpty) {
-        return 'O pagamento não foi concluído. Tente de novo quando quiser.';
-      }
-      final result = await s.confirmPlus(payment.id);
-      on = result.plus;
-      return on
-          ? 'Pronto! O Ninho Plus está ativo na sua conta.'
-          : switch (result.status) {
-              'pending' || 'in_process' || 'authorized' =>
-                'Pagamento em análise. O Plus é liberado assim que o Mercado Pago aprovar.',
-              _ => 'O pagamento não foi aprovado. Tente de novo quando quiser.',
-            };
-    });
-    if (on && mounted) openGifts();
   }
 
   @override
@@ -2363,7 +2339,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             const SectionTitle('Sobre esta versão'),
             Text(
-              'Ninho 0.1 · Planejamento familiar\n\nRecursos de cobrança de assinatura não estão ativos nesta versão. O compartilhamento funciona por família.\n\nEm Saúde, registre informações recebidas dos profissionais. O aplicativo não substitui o acompanhamento clínico.${widget.ads.enabled ? '\n\nO app é gratuito e mostra um anúncio ao abrir, no máximo a cada 4 horas. Dados de finanças, família e saúde nunca são usados em anúncios.' : ''}',
+              'Ninho 0.1 · Planejamento familiar\n\nRecursos de cobrança de assinatura não estão ativos nesta versão. O compartilhamento funciona por família.\n\nEm Saúde, registre informações recebidas dos profissionais. O aplicativo não substitui o acompanhamento clínico.${widget.ads.enabled ? '\n\nO app é gratuito e mostra um anúncio ao abrir, que o Ninho Plus tira. Dados de finanças, família e saúde nunca são usados em anúncios.' : ''}',
               style: TextStyle(color: p.muted, height: 1.6),
             ),
             const SizedBox(height: 8),

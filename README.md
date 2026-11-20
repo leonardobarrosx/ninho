@@ -50,7 +50,7 @@ As imagens e o GIF saíram do build web da demonstração, com o Playwright. Par
 - **Saúde:** consultas, exames, vacinas, medicamentos e outros registros. Os próximos aparecem separados dos realizados, e o custo vira despesa sem duplicar.
 - **Família:** cada pessoa entra com a própria conta, por um convite de uso único válido por 72 horas. São até quatro pessoas por família. Quem criou a família pode remover pessoas, e as outras podem sair.
 - **Conta e privacidade:** cadastro com confirmação de e-mail, login e troca de senha. A conta pode ser excluída no próprio app, em Família › Sua conta, e uma página do site explica como fazer. As famílias com outras pessoas passam para quem entrou primeiro, e as demais são apagadas com seus registros. O app tem uma página de licenças de código aberto.
-- **Anúncios (só no Android):** um anúncio do AdMob na abertura, no máximo a cada 4 horas, depois do consentimento do Google. A versão web não tem anúncios.
+- **Anúncios (só no Android):** um anúncio do AdMob a cada abertura do app, menos a primeira, depois do consentimento do Google. O Ninho Plus, comprado pela Google Play, tira o anúncio. A versão web não tem anúncios.
 
 ## Experiência
 

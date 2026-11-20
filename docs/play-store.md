@@ -73,7 +73,8 @@ Como o app usa os IDs:
 Como o anúncio aparece (`app/lib/ads.dart`):
 
 - só no Android e só no início a frio; a versão web não tem anúncios;
-- no máximo uma vez a cada 4 horas, e a primeira só 4 horas depois da primeira abertura do app;
+- em toda abertura a frio, menos a primeira depois da instalação (`adInterval` é zero);
+- nenhum quando a família tem o Plus: o app guarda isso no aparelho e, na abertura seguinte, nem carrega o SDK;
 - a abertura espera no máximo 4 segundos, atrás de uma capa com a logo, pela consulta de consentimento e pelo anúncio. Se ele falhar ou atrasar, o app abre e o anúncio atrasado é descartado;
 - nunca durante a recuperação de senha, nem com o app em segundo plano;
 - o consentimento vem antes de qualquer anúncio. Quando a mensagem do Google aparece, nenhum anúncio é mostrado naquela abertura. Anúncios personalizados só depois de uma resposta na mensagem do Google; onde não há mensagem, como no Brasil, e sem uma resposta atualizada, só anúncios não personalizados são pedidos;

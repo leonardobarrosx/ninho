@@ -447,7 +447,8 @@ func (s *Server) preview(w http.ResponseWriter, r *http.Request) {
 }
 
 // refreshPrices answers POST /internal/refresh-prices, called once a day by pg_cron with CRON_SECRET.
-// It answers right away and checks every linked option in the background with the secret key.
+// It answers right away and, in the background with the secret key, takes Plus back from refunded Google Play
+// purchases and checks every linked option.
 func (s *Server) refreshPrices(w http.ResponseWriter, r *http.Request) {
 	auth := r.Header.Get("Authorization")
 	if s.cfg.CronSecret == "" || s.cfg.SecretKey == "" ||
@@ -467,6 +468,14 @@ func (s *Server) refreshPrices(w http.ResponseWriter, r *http.Request) {
 		defer s.refreshing.Store(false)
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 		defer cancel()
+		// Refunded Plus purchases lose Plus with the same daily call.
+		if s.play != nil {
+			if n, err := s.syncVoided(ctx); err != nil {
+				slog.Error("voided purchases check failed", "error", err)
+			} else {
+				slog.Info("voided purchases checked", "voided", n)
+			}
+		}
 		checked, changed, failed, err := s.checkAllPrices(ctx)
 		if err != nil {
 			slog.Error("price check failed", "error", err)

@@ -119,30 +119,6 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('the web app reads the payment Mercado Pago comes back with', () {
-    Uri back(String query) => Uri.parse('https://ninho.example/app/?$query');
-    expect(
-      plusReturn(
-        back('plus=retorno&payment_id=123&status=approved'),
-        web: true,
-      ),
-      (id: '123', status: 'approved'),
-    );
-    expect(
-      plusReturn(
-        back('plus=retorno&collection_id=55&collection_status=pending'),
-        web: true,
-      ),
-      (id: '55', status: 'pending'),
-    );
-    expect(
-      plusReturn(back('plus=retorno&payment_id=null&status=null'), web: true),
-      (id: '', status: 'null'),
-    );
-    expect(plusReturn(back('payment_id=123'), web: true), isNull);
-    expect(plusReturn(back('plus=retorno&payment_id=123')), isNull);
-  });
-
   test('Pix keys are written the way the BR Code expects', () {
     expect(pixKey('cpf', '123.456.789-09'), '12345678909');
     expect(pixKey('cnpj', '12.345.678/0001-95'), '12345678000195');

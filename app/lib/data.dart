@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'ads.dart' show adFreeKey;
+import 'billing.dart';
 import 'domain.dart';
 
 const apiUrl = String.fromEnvironment('API_URL');
@@ -21,18 +24,6 @@ Uri? sitePage(String page) {
 }
 
 final privacyPolicy = sitePage('privacidade.html');
-
-/// The payment Mercado Pago's checkout came back with, when the web app opens
-/// at /app/?plus=retorno. The id is empty when no payment was made.
-({String id, String status})? plusReturn(Uri url, {bool web = kIsWeb}) {
-  final q = url.queryParameters;
-  if (!web || q['plus'] != 'retorno') return null;
-  final id = q['payment_id'] ?? q['collection_id'] ?? '';
-  return (
-    id: RegExp(r'^\d{1,30}$').hasMatch(id) ? id : '',
-    status: q['status'] ?? q['collection_status'] ?? '',
-  );
-}
 
 const resources = [
   'babies',
@@ -64,7 +55,20 @@ class Store extends ChangeNotifier {
   String? error;
   Store({this.demo = false}) {
     if (demo) _seed();
+    final user = configured && !demo
+        ? Supabase.instance.client.auth.currentUser?.id
+        : null;
+    if (buysPlus && user != null) {
+      billing = PlayBilling(
+        userId: user,
+        send: (product, token) async =>
+            (await sendPlusPurchase(product, token)).state,
+      );
+    }
   }
+
+  /// Google Play Billing, in the Android app with an account. Null elsewhere.
+  PlayBilling? billing;
   List<Json> rows(String name) => data[name] ?? [];
   String get familyName =>
       households
@@ -197,6 +201,7 @@ class Store extends ChangeNotifier {
         }
         members = loaded[resources.length] as List<Json>;
         plus = loaded.last == true;
+        unawaited(_rememberPlus(plus));
       } else {
         data.clear();
         members = [];
@@ -278,22 +283,34 @@ class Store extends ChangeNotifier {
     return Map<String, dynamic>.from(result as Map);
   }
 
-  /// Opens a Mercado Pago payment for Plus and returns its page.
-  Future<Uri> plusCheckout() async {
-    if (demo) throw Exception('Na demonstração, o Plus já vem ativo.');
-    final result = await request('POST', 'plus/checkout') as Map;
-    return Uri.parse(result['url'] as String);
+  /// Keeps on the device whether this family has Plus, so the next launch
+  /// knows to skip the ad before anything loads.
+  Future<void> _rememberPlus(bool value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(adFreeKey, value);
+    } catch (_) {
+      // Without it, the next launch may show one more ad.
+    }
   }
 
-  /// Checks a Plus payment with Mercado Pago. Says whether Plus is on now and
-  /// the payment's status, such as approved, pending or rejected.
-  Future<({bool plus, String status})> confirmPlus(String paymentId) async {
+  /// Sends a Google Play purchase of Plus to the server, which checks it with
+  /// Google. Says whether Plus is on now and the purchase's state: purchased,
+  /// pending or canceled.
+  Future<({bool plus, String state})> sendPlusPurchase(
+    String productId,
+    String token,
+  ) async {
     final result =
-        await request('POST', 'plus/confirm', {'payment_id': paymentId}) as Map;
+        await request('POST', 'plus/google', {
+              'product_id': productId,
+              'purchase_token': token,
+            })
+            as Map;
     await refresh();
     return (
       plus: result['plus'] == true,
-      status: result['status'] as String? ?? '',
+      state: result['state'] as String? ?? '',
     );
   }
 
@@ -792,6 +809,7 @@ class Store extends ChangeNotifier {
 
   @override
   void dispose() {
+    billing?.dispose();
     _disposed = true;
     _refreshVersion++;
     _client.close();

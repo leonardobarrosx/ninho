@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'billing.dart';
 import 'data.dart';
 import 'domain.dart';
 import 'forms.dart';
@@ -324,6 +324,7 @@ class _GiftListPageState extends State<GiftListPage> {
           'Quatro modelos de página e cinco cores',
           'Quem visita escolhe o item inteiro ou uma parte e paga por Pix',
           'Vocês confirmam cada Pix e o valor entra na reserva do item',
+          'Sem anúncios ao abrir o app, para toda a família',
         ])
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -343,9 +344,9 @@ class _GiftListPageState extends State<GiftListPage> {
         ),
         const SizedBox(height: 6),
         Text(
-          kIsWeb
-              ? 'Pague por Pix ou cartão, pelo Mercado Pago. O Plus é liberado assim que o pagamento é aprovado.'
-              : 'A compra pelo app Android chega em breve.',
+          s.billing != null
+              ? 'Pague pela Google Play, com a forma de pagamento da sua conta Google.'
+              : 'Compre no app Android do Ninho, entrando com esta mesma conta. O Plus passa a valer aqui também.',
           style: TextStyle(color: p.muted),
         ),
         const SizedBox(height: 16),
@@ -353,11 +354,21 @@ class _GiftListPageState extends State<GiftListPage> {
           spacing: 10,
           runSpacing: 10,
           children: [
-            if (kIsWeb)
+            if (s.billing case final billing?) ...[
               FilledButton.icon(
-                onPressed: saving ? null : buyPlus,
+                onPressed: saving ? null : () => perform(billing.buy),
                 icon: const Icon(Icons.lock_open_rounded, size: 18),
                 label: const Text('Comprar o Plus'),
+              ),
+              TextButton(
+                onPressed: saving ? null : () => perform(billing.restore),
+                child: const Text('Restaurar compra'),
+              ),
+            ] else if (kIsWeb)
+              FilledButton.icon(
+                onPressed: () => openLink(context, playListing.toString()),
+                icon: const Icon(Icons.shop_rounded, size: 18),
+                label: const Text('Abrir na Google Play'),
               ),
             if (sitePage('lista/exemplo') case final example?)
               OutlinedButton.icon(
@@ -370,16 +381,6 @@ class _GiftListPageState extends State<GiftListPage> {
       ],
     ),
   );
-
-  /// Goes to Mercado Pago's checkout in this tab. It comes back to
-  /// /app/?plus=retorno, where the home screen checks the payment.
-  Future<void> buyPlus() => perform(() async {
-    final page = await s.plusCheckout();
-    if (!await launchUrl(page, webOnlyWindowName: '_self')) {
-      throw Exception('Não foi possível abrir o Mercado Pago.');
-    }
-    return 'Abrindo o Mercado Pago…';
-  });
 
   Widget start() => EmptyState(
     'Monte a página de\u00a0vocês',

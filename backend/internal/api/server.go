@@ -30,13 +30,11 @@ type Config struct {
 	CronSecret string
 	// Pages fetches store pages for link previews. Nil uses pageClient, which refuses private addresses.
 	Pages *http.Client
-	// MercadoPagoToken is the production access token of the Mercado Pago account that receives Plus
-	// purchases. Empty disables buying Plus. MercadoPagoWebhookSecret is the secret signature of its webhook.
-	MercadoPagoToken, MercadoPagoWebhookSecret string
-	// MercadoPagoURL replaces https://api.mercadopago.com in tests.
-	MercadoPagoURL string
-	// AppURL is the site's address, such as https://ninho.app; the buyer returns to its /app/ after paying.
-	AppURL string
+	// PlayServiceAccount is the JSON key of the Google Cloud service account that reads this app's purchases on
+	// Google Play, and PlayPackage the app's package name. Empty disables buying Plus.
+	PlayServiceAccount, PlayPackage string
+	// GooglePlayURL replaces https://androidpublisher.googleapis.com in tests.
+	GooglePlayURL string
 }
 
 func (c Config) Validate() error {
@@ -65,13 +63,15 @@ func (c Config) Validate() error {
 			return errors.New("origins must be exact URLs without paths or wildcards")
 		}
 	}
-	if c.MercadoPagoToken != "" {
+	if c.PlayServiceAccount != "" {
 		if c.SecretKey == "" {
-			return errors.New("MERCADOPAGO_ACCESS_TOKEN requires SUPABASE_SECRET_KEY")
+			return errors.New("GOOGLE_PLAY_SERVICE_ACCOUNT requires SUPABASE_SECRET_KEY")
 		}
-		u, e := url.Parse(c.AppURL)
-		if e != nil || u.Scheme != "https" || u.Host == "" || strings.Trim(u.Path, "/") != "" || u.RawQuery != "" || u.User != nil {
-			return errors.New("APP_URL must be the site's https address, without a path")
+		if !regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$`).MatchString(c.PlayPackage) {
+			return errors.New("GOOGLE_PLAY_PACKAGE must be the app's package name")
+		}
+		if _, err := parseServiceAccount(c.PlayServiceAccount); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -88,6 +88,10 @@ type Server struct {
 	mu         sync.Mutex
 	limits     map[string]quota
 	refreshing atomic.Bool
+	// play reads purchases on Google Play; nil when buying Plus is off. Its access token is kept until it expires.
+	play           *serviceAccount
+	playToken      string
+	playTokenUntil time.Time
 }
 
 var uuid = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -141,11 +145,13 @@ func New(c Config) http.Handler {
 		pages = pageClient()
 	}
 	s := &Server{cfg: c, client: client, pages: pages, limits: map[string]quota{}}
+	if c.PlayServiceAccount != "" {
+		s.play, _ = parseServiceAccount(c.PlayServiceAccount)
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { send(w, 200, map[string]string{"status": "ok"}) })
 	mux.HandleFunc("/internal/refresh-prices", s.refreshPrices)
 	mux.HandleFunc("/v1/public/lists/", s.giftList)
-	mux.HandleFunc("/webhooks/mercadopago", s.mercadoPagoWebhook)
 	mux.Handle("/v1/", s.protect(http.HandlerFunc(s.route)))
 	return s.middleware(mux)
 }
@@ -248,8 +254,8 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		s.deleteAccount(w, r)
 		return
 	}
-	if len(parts) == 2 && parts[0] == "plus" {
-		s.plus(w, r, parts[1])
+	if len(parts) == 2 && parts[0] == "plus" && parts[1] == "google" {
+		s.plusGoogle(w, r)
 		return
 	}
 	if len(parts) == 1 && parts[0] == "preview" {
