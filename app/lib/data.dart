@@ -29,6 +29,9 @@ const resources = [
   'goals',
   'goal_options',
   'goal_option_prices',
+  'gift_lists',
+  'gift_contributions',
+  'gift_contribution_items',
   'measurements',
   'health_events',
 ];
@@ -40,6 +43,8 @@ class Store extends ChangeNotifier {
   List<Json> households = [];
   List<Json> members = [];
   String? householdId;
+  // Whether someone in this family bought Plus, which opens the gift list.
+  bool plus = false;
   bool loading = false;
   bool _disposed = false;
   int _refreshVersion = 0;
@@ -169,15 +174,20 @@ class Store extends ChangeNotifier {
         final loaded = await Future.wait([
           for (final r in resources) _load(r, familyId: selected),
           _members(selected),
+          request('POST', 'rpc/household_has_plus', {
+            'p_household_id': selected,
+          }),
         ]);
         if (_disposed || version != _refreshVersion) return;
         for (var i = 0; i < resources.length; i++) {
           data[resources[i]] = loaded[i];
         }
-        members = loaded.last;
+        members = loaded[resources.length] as List<Json>;
+        plus = loaded.last == true;
       } else {
         data.clear();
         members = [];
+        plus = false;
       }
     } catch (e) {
       if (_disposed || version != _refreshVersion) return;
@@ -358,6 +368,30 @@ class Store extends ChangeNotifier {
             'Enxoval',
           );
         }
+      } else if (name == 'decide_gift') {
+        final c = rows(
+          'gift_contributions',
+        ).firstWhere((e) => e['id'] == args['p_id']);
+        final status = args['p_status'] as String;
+        final sign = status == 'confirmed'
+            ? 1
+            : c['status'] == 'confirmed'
+            ? -1
+            : 0;
+        if (c['status'] != status && sign != 0) {
+          for (final i in rows(
+            'gift_contribution_items',
+          ).where((i) => i['contribution_id'] == c['id'])) {
+            final g = rows('goals').where((g) => g['id'] == i['goal_id']);
+            for (final goal in g) {
+              goal['saved_cents'] =
+                  (number(goal, 'saved_cents') +
+                          sign * number(i, 'amount_cents'))
+                      .clamp(0, 99999999999);
+            }
+          }
+        }
+        c['status'] = status;
       } else if (name == 'record_health_cost') {
         final e = rows(
           'health_events',
@@ -406,6 +440,7 @@ class Store extends ChangeNotifier {
     final now = DateTime.now();
     String day(int d) => iso(DateTime(now.year, now.month, d));
     householdId = 'demo';
+    plus = true;
     households = [
       {'id': 'demo', 'name': 'Família de exemplo'},
     ];
@@ -629,6 +664,59 @@ class Store extends ChangeNotifier {
           'price_cents': price,
           'list_price_cents': list,
         },
+    ];
+    data['gift_lists'] = [
+      {
+        'id': 'l1',
+        'slug': 'exemplo',
+        'published': true,
+        'template': 'cards',
+        'palette': 'pessego',
+        'title': 'Enxoval do papai Pedro e da mamãe Ana',
+        'message':
+            'A gente está montando o cantinho do bebê com muito carinho. Qualquer ajuda, inteira ou um pedacinho, já deixa tudo mais leve.',
+        'show_prices': true,
+        'allow_partial': true,
+        'pix_key': 'ana.pedro@exemplo.com',
+        'pix_name': 'Ana Souza',
+        'pix_city': 'Recife',
+      },
+    ];
+    data['gift_contributions'] = [
+      {
+        'id': 'c1',
+        'list_id': 'l1',
+        'name': 'Tia Rosa',
+        'message': 'Com muito carinho para o bebê!',
+        'amount_cents': 50000,
+        'status': 'pending',
+        'created_at': ago(0),
+      },
+      {
+        'id': 'c2',
+        'list_id': 'l1',
+        'name': 'Vó Lúcia',
+        'message': '',
+        'amount_cents': 12000,
+        'status': 'confirmed',
+        'created_at': ago(3),
+      },
+    ];
+    data['gift_contribution_items'] = [
+      {
+        'id': 'ci1',
+        'contribution_id': 'c1',
+        'goal_id': 'g1',
+        'title': 'Berço e colchão',
+        'amount_cents': 50000,
+      },
+      {
+        'id': 'ci2',
+        'contribution_id': 'c2',
+        'goal_id': 'g2',
+        'title': 'Roupas para os primeiros meses',
+        'amount_cents': 12000,
+      },
     ];
     data['debts'] = [
       {

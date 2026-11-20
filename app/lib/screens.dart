@@ -5,6 +5,7 @@ import 'ads.dart';
 import 'data.dart';
 import 'domain.dart';
 import 'forms.dart';
+import 'gifts.dart';
 import 'layette.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -1212,6 +1213,70 @@ class _HomeScreenState extends State<HomeScreen> {
     if (created != null && url.isNotEmpty) openItem(created!);
   }
 
+  void openGifts() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => GiftListPage(store: s)));
+
+  /// The way into the gift list, with what waits for the family there.
+  Widget giftBanner() {
+    final list = s.rows('gift_lists').firstOrNull;
+    final gifts = s.rows('gift_contributions');
+    final pending = gifts.where((c) => c['status'] == 'pending').length;
+    final confirmed = gifts
+        .where((c) => c['status'] == 'confirmed')
+        .fold(0, (t, c) => t + number(c, 'amount_cents'));
+    final note = list == null
+        ? 'Amigos e família escolhem um item, ou parte dele, e pagam por Pix direto para vocês.'
+        : pending > 0
+        ? '${pending == 1 ? '1 Pix' : '$pending Pix'} para conferir · ${money(confirmed)} confirmados'
+        : list['published'] == true
+        ? 'Publicada · ${money(confirmed)} confirmados'
+        : 'Fora do ar. Termine de montar e publique.';
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: openGifts,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: pending > 0 ? p.sunnyTint : p.mintTint,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.redeem_rounded,
+                  color: pending > 0 ? p.sunnyIcon : p.mintIcon,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Lista de presentes com\u00a0Pix',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: p.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(note, style: TextStyle(color: p.muted, fontSize: 13)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: p.muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void openItem(String id) => Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => LayetteItemPage(store: s, goalId: id, onEdit: editGoal),
@@ -1278,6 +1343,8 @@ class _HomeScreenState extends State<HomeScreen> {
         if (all.isNotEmpty) ...[
           LayetteTotalsPanel(totals, items: all.length),
           const SizedBox(height: 20),
+          giftBanner(),
+          const SizedBox(height: 20),
         ],
         if (alerts.isNotEmpty) ...[
           Panel(
@@ -1286,8 +1353,8 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 SectionTitle(
                   alerts.length == 1
-                      ? 'Um preço mudou nesta semana'
-                      : '${alerts.length} preços mudaram nesta semana',
+                      ? 'Um preço mudou nesta\u00a0semana'
+                      : '${alerts.length} preços mudaram nesta\u00a0semana',
                 ),
                 for (final (g, o, alert) in alerts)
                   InkWell(
@@ -1376,7 +1443,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 20),
         if (list.isEmpty)
           EmptyState(
-            'Qual é o primeiro item?',
+            'Qual é o primeiro\u00a0item?',
             'Dê um nome e cole o link da loja. Foto e preço vêm sozinhos.',
             onAdd: newItem,
           )

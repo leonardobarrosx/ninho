@@ -564,7 +564,7 @@ class _LayetteItemPageState extends State<LayetteItemPage> {
                   ),
                   if (options.isEmpty)
                     EmptyState(
-                      'Qual produto vocês estão olhando?',
+                      'Qual produto vocês estão\u00a0olhando?',
                       'Cole o link da loja e compare até cinco opções.',
                       onAdd: saving ? null : () => addOption(g),
                     )
@@ -695,7 +695,7 @@ class _LayetteItemPageState extends State<LayetteItemPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionTitle(
-            'Mais barata e mais cara',
+            'Mais barata e mais\u00a0cara',
             caption:
                 'Diferença de ${money((number(dear, 'price_cents') - number(cheap, 'price_cents')) * quantity)}${quantity > 1 ? ' nas $quantity unidades' : ''}.',
           ),
@@ -903,7 +903,7 @@ class PriceHistory extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SectionTitle(
-                'Histórico de preço',
+                'Histórico de\u00a0preço',
                 caption: option['title'] as String,
               ),
               if (prices.length >= 2) ...[

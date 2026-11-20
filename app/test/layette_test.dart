@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ninho/data.dart';
 import 'package:ninho/domain.dart';
+import 'package:ninho/gifts.dart';
 import 'package:ninho/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -93,13 +94,13 @@ void main() {
     await tester.tap(find.text('Enxoval').last);
     await tester.pumpAndSettle();
     expect(find.text('Enxoval com as opções escolhidas'), findsOneWidget);
-    expect(find.text('2 preços mudaram nesta semana'), findsOneWidget);
+    expect(find.text('2 preços mudaram nesta\u00a0semana'), findsOneWidget);
 
     final open = find.text('Opções e preços').first;
     await tester.ensureVisible(open);
     await tester.tap(open);
     await tester.pumpAndSettle();
-    expect(find.text('Mais barata e mais cara'), findsOneWidget);
+    expect(find.text('Mais barata e mais\u00a0cara'), findsOneWidget);
     expect(find.text('Escolher a mais barata'), findsOneWidget);
     expect(find.textContaining('orçamento ${money(138990)}'), findsOneWidget);
 
@@ -114,7 +115,60 @@ void main() {
     await tester.ensureVisible(history);
     await tester.tap(history);
     await tester.pumpAndSettle();
-    expect(find.text('Histórico de preço'), findsOneWidget);
+    expect(find.text('Histórico de\u00a0preço'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  test('Pix keys are written the way the BR Code expects', () {
+    expect(pixKey('cpf', '123.456.789-09'), '12345678909');
+    expect(pixKey('cnpj', '12.345.678/0001-95'), '12345678000195');
+    expect(pixKey('phone', '(81) 99999-1234'), '+5581999991234');
+    expect(pixKey('phone', '+55 81 99999-1234'), '+5581999991234');
+    expect(pixKey('email', ' Ana@Exemplo.com '), 'ana@exemplo.com');
+    expect(
+      pixKey('random', '123E4567-E89B-12D3-A456-426614174000'),
+      '123e4567-e89b-12d3-a456-426614174000',
+    );
+    expect(pixKey('cpf', '1234'), isNull);
+    expect(pixKey('email', 'ana'), isNull);
+    expect(pixKeyType('+5581999991234'), 'phone');
+    expect(pixKeyType('12345678909'), 'cpf');
+  });
+
+  test('list addresses are short, plain and readable', () {
+    expect(slugify('Enxoval de Maria & João!'), 'enxoval-de-maria-joao');
+    expect(validSlug(slugify('Enxoval de Maria & João!')), isTrue);
+    expect(slugify('x' * 60).length, 40);
+    expect(validSlug('ab'), isFalse);
+    expect(validSlug('ana--pedro'), isFalse);
+    expect(joinNames(['Ana', 'Bia', 'Caio']), 'Ana, Bia e Caio');
+  });
+
+  testWidgets('the family confirms a Pix and it goes into the reserve', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(const NinhoApp());
+    await tester.tap(find.text('Explorar demonstração'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Enxoval').last);
+    await tester.pumpAndSettle();
+    final banner = find.text('Lista de presentes com Pix');
+    await tester.ensureVisible(banner);
+    await tester.tap(banner);
+    await tester.pumpAndSettle();
+    expect(find.text('Presentes recebidos'), findsOneWidget);
+    expect(find.text('Tia Rosa'), findsOneWidget);
+    final confirm = find.text('Confirmar');
+    await tester.ensureVisible(confirm);
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+    expect(find.text('Confirmar'), findsNothing);
+    expect(find.textContaining('${money(62000)} confirmados'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
