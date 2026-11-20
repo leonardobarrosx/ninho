@@ -635,6 +635,9 @@ class LinePainter extends CustomPainter {
   final int divisor;
   final Color line, grid;
   final TextStyle label;
+  // The date of each point, and how an axis value reads.
+  final String time;
+  final String Function(double value) format;
   LinePainter(
     this.rows,
     this.field,
@@ -642,7 +645,10 @@ class LinePainter extends CustomPainter {
     required this.line,
     required this.grid,
     required this.label,
+    this.time = 'measured_at',
+    this.format = _oneDecimal,
   });
+  static String _oneDecimal(double value) => decimal(value, digits: 1);
   @override
   void paint(Canvas canvas, Size size) {
     final values = rows.map((e) => number(e, field) / divisor).toList();
@@ -655,7 +661,7 @@ class LinePainter extends CustomPainter {
     final times = rows
         .map(
           (e) => DateTime.parse(
-            e['measured_at'] as String,
+            e[time] as String,
           ).millisecondsSinceEpoch.toDouble(),
         )
         .toList();
@@ -668,10 +674,7 @@ class LinePainter extends CustomPainter {
         Paint()..color = grid,
       );
       final text = TextPainter(
-        text: TextSpan(
-          text: decimal(max - delta * i / 2, digits: 1),
-          style: label,
-        ),
+        text: TextSpan(text: format(max - delta * i / 2), style: label),
         textDirection: TextDirection.ltr,
       )..layout();
       text.paint(canvas, Offset(0, y - 7));

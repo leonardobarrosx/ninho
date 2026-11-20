@@ -234,7 +234,12 @@ class _EditDialogState extends State<EditDialog> {
     if (f.type == 'text' && v.trim().length > (f.max < 120 ? f.max : 120)) {
       return 'Texto muito longo';
     }
-    if (f.type == 'notes' && v.length > 2000) return 'Use até 2.000 caracteres';
+    if (f.type == 'notes' && v.length > (f.max < 2000 ? f.max : 2000)) {
+      return 'Use até ${f.max < 2000 ? f.max : '2.000'} caracteres';
+    }
+    if (f.type == 'url' && normalizeLink(v) == null) {
+      return 'Cole o link da página do produto';
+    }
     return null;
   }
 
@@ -273,7 +278,9 @@ class _EditDialogState extends State<EditDialog> {
       }
       final text = controls[f.key]!.text.trim();
       values[f.key] = text.isEmpty && f.optional
-          ? (f.type == 'notes' || f.type == 'text' ? '' : null)
+          ? (const {'notes', 'text', 'url'}.contains(f.type) ? '' : null)
+          : f.type == 'url'
+          ? normalizeLink(text)
           : f.type == 'money'
           ? parseMoney(text)
           : f.type == 'int'
@@ -380,6 +387,8 @@ class _EditDialogState extends State<EditDialog> {
           ? TextInputType.number
           : f.type == 'notes'
           ? TextInputType.multiline
+          : f.type == 'url'
+          ? TextInputType.url
           : TextInputType.text,
       // The keyboard's action key moves to the next field, and closes the
       // keyboard on the last one. Notes take line breaks.

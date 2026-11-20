@@ -100,4 +100,85 @@ void main() {
     expect(decimal(1234.5), '1.234,5');
     expect(decimal(3.27, digits: 1), '3,3');
   });
+  test('a store link is found in shared text and gets https', () {
+    expect(
+      normalizeLink('Olha este berço! https://loja.test/berco?id=1. Gostou?'),
+      'https://loja.test/berco?id=1',
+    );
+    expect(normalizeLink('loja.test/p/2'), 'https://loja.test/p/2');
+    expect(normalizeLink('http://loja.test/x'), 'http://loja.test/x');
+    for (final bad in ['', 'berço', 'https://user:pw@loja.test/x', 'a b.c']) {
+      expect(normalizeLink(bad), isNull, reason: bad);
+    }
+  });
+  test('options list the main one, then the cheapest, unpriced last', () {
+    final goal = {'id': 'g', 'chosen_option_id': 'c'};
+    final options = <Json>[
+      {'id': 'x', 'goal_id': 'g', 'price_cents': null},
+      {'id': 'b', 'goal_id': 'g', 'price_cents': 900},
+      {'id': 'c', 'goal_id': 'g', 'price_cents': 1500},
+      {'id': 'a', 'goal_id': 'g', 'price_cents': 500},
+      {'id': 'o', 'goal_id': 'other', 'price_cents': 1},
+    ];
+    expect(optionsOf(goal, options).map((o) => o['id']), ['c', 'a', 'b', 'x']);
+  });
+  test('a discount needs a list price above the price', () {
+    expect(
+      discountPercent({'price_cents': 8000, 'list_price_cents': 10000}),
+      20,
+    );
+    expect(
+      discountPercent({'price_cents': 8000, 'list_price_cents': 7000}),
+      isNull,
+    );
+    expect(discountPercent({'price_cents': 8000}), isNull);
+  });
+  test('price alerts last a week and say what changed', () {
+    final now = DateTime(2026, 11, 20, 12);
+    Json option(int previous, int price, {int? list, int days = 1}) => {
+      'previous_price_cents': previous,
+      'price_cents': price,
+      'list_price_cents': list,
+      'previous_list_price_cents': 12000,
+      'price_changed_at': now
+          .subtract(Duration(days: days))
+          .toUtc()
+          .toIso8601String(),
+    };
+    expect(priceAlert(option(10000, 9000), now)!.text, 'Baixou ${money(1000)}');
+    expect(priceAlert(option(9000, 10000), now)!.text, 'Subiu ${money(1000)}');
+    expect(priceAlert(option(9000, 9000), now)!.text, 'Desconto acabou');
+    expect(
+      priceAlert(option(9000, 9000, list: 11000), now)!.text,
+      'Desconto mudou',
+    );
+    expect(priceAlert(option(10000, 9000, days: 8), now), isNull);
+    expect(priceAlert({'price_cents': 9000}, now), isNull);
+  });
+  test('layette totals compare chosen, cheapest and priciest options', () {
+    final goals = <Json>[
+      {'id': 'a', 'quantity': 2, 'target_cents': 3000},
+      {'id': 'b', 'quantity': 1, 'target_cents': 5000},
+    ];
+    final options = <Json>[
+      {'goal_id': 'a', 'price_cents': 1500},
+      {'goal_id': 'a', 'price_cents': 1000},
+      {'goal_id': 'a', 'price_cents': 2500},
+      {'goal_id': 'a', 'price_cents': null},
+    ];
+    final t = layetteTotals(goals, options);
+    expect(
+      (t.chosen, t.cheapest, t.priciest, t.compared),
+      (8000, 7000, 10000, 1),
+    );
+  });
+  test('layette items follow the family order, then the loaded order', () {
+    final goals = <Json>[
+      {'id': 'a', 'sort_order': 2},
+      {'id': 'b'},
+      {'id': 'c', 'sort_order': 1},
+      {'id': 'd', 'sort_order': 0},
+    ];
+    expect(inOrder(goals).map((g) => g['id']), ['b', 'd', 'c', 'a']);
+  });
 }

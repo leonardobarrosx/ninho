@@ -27,6 +27,8 @@ const resources = [
   'settlements',
   'debts',
   'goals',
+  'goal_options',
+  'goal_option_prices',
   'measurements',
   'health_events',
 ];
@@ -193,7 +195,9 @@ class Store extends ChangeNotifier {
     await refresh();
   }
 
-  Future<void> save(
+  /// Creates a record, or changes the one with [id]. Returns the record as
+  /// saved, with the values the database filled in.
+  Future<Json?> save(
     String resource,
     Json values, {
     String? id,
@@ -201,30 +205,117 @@ class Store extends ChangeNotifier {
   }) async {
     if (demo) {
       final list = data.putIfAbsent(resource, () => []);
+      final Json row;
+      Json? old;
       if (id == null) {
-        list.add({
+        if (resource == 'goal_options' &&
+            rows(
+                  resource,
+                ).where((o) => o['goal_id'] == values['goal_id']).length >=
+                5) {
+          throw Exception('Cada item aceita até cinco opções');
+        }
+        row = {
           ...values,
           'id': DateTime.now().microsecondsSinceEpoch.toString(),
           'household_id': householdId,
-        });
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        };
+        list.add(row);
       } else {
         final i = list.indexWhere((e) => e['id'] == id);
-        list[i] = {...list[i], ...values};
+        old = list[i];
+        row = list[i] = {...old, ...values};
       }
+      if (resource == 'goal_options') _demoOption(row, old);
+      if (resource == 'goals') _demoBudget(row);
       notifyListeners();
-      return;
+      return row;
     }
-    await request(
+    final result = await request(
       id == null ? 'POST' : 'PATCH',
       'data/$resource${id == null ? '' : '/$id'}',
       {...values, if (id == null) 'household_id': householdId},
     );
     if (reload) await refresh();
+    return result is List && result.isNotEmpty
+        ? Map<String, dynamic>.from(result.first as Map)
+        : null;
+  }
+
+  /// What a store's page says about a product: title, description, image,
+  /// store, price and list price. Any of them may be missing.
+  Future<Json> preview(String url) async {
+    if (demo) {
+      throw Exception(
+        'Na demonstração, foto e preço não são buscados. Preencha à mão.',
+      );
+    }
+    final result = await request('POST', 'preview', {'url': url});
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  // The demonstration has no database, so these do what its triggers do.
+  void _demoOption(Json o, Json? old) {
+    final price = maybe(o, 'price_cents');
+    final list = maybe(o, 'list_price_cents');
+    final changed =
+        old == null ||
+        price != maybe(old, 'price_cents') ||
+        list != maybe(old, 'list_price_cents');
+    if (old != null && old['price_cents'] != null && price != null && changed) {
+      o['previous_price_cents'] = old['price_cents'];
+      o['previous_list_price_cents'] = old['list_price_cents'];
+      o['price_changed_at'] = DateTime.now().toUtc().toIso8601String();
+    }
+    if (price != null && changed) {
+      data.putIfAbsent('goal_option_prices', () => []).add({
+        'id': 'p${DateTime.now().microsecondsSinceEpoch}',
+        'option_id': o['id'],
+        'recorded_at': DateTime.now().toUtc().toIso8601String(),
+        'price_cents': price,
+        'list_price_cents': list,
+      });
+    }
+    final goal = rows(
+      'goals',
+    ).where((g) => g['id'] == o['goal_id']).firstOrNull;
+    if (goal == null) return;
+    goal['chosen_option_id'] ??= o['id'];
+    _demoBudget(goal);
+  }
+
+  void _demoBudget(Json goal) {
+    final chosen = rows(
+      'goal_options',
+    ).where((o) => o['id'] == goal['chosen_option_id']).firstOrNull;
+    final price = chosen == null ? null : maybe(chosen, 'price_cents');
+    if (price != null) goal['target_cents'] = price * number(goal, 'quantity');
   }
 
   Future<void> remove(String resource, String id) async {
     if (demo) {
       data[resource]?.removeWhere((e) => e['id'] == id);
+      if (resource == 'goals') {
+        final gone = rows('goal_options').where((o) => o['goal_id'] == id);
+        final ids = {for (final o in gone) o['id']};
+        data['goal_options']?.removeWhere((o) => ids.contains(o['id']));
+        data['goal_option_prices']?.removeWhere(
+          (h) => ids.contains(h['option_id']),
+        );
+      }
+      if (resource == 'goal_options') {
+        data['goal_option_prices']?.removeWhere((h) => h['option_id'] == id);
+        for (final g in rows(
+          'goals',
+        ).where((g) => g['chosen_option_id'] == id)) {
+          final next = optionsOf({
+            'id': g['id'],
+          }, rows('goal_options')).firstOrNull;
+          g['chosen_option_id'] = next?['id'];
+          _demoBudget(g);
+        }
+      }
       notifyListeners();
       return;
     }
@@ -408,6 +499,9 @@ class Store extends ChangeNotifier {
         'acquired': 0,
         'target_date': iso(now.add(const Duration(days: 90))),
         'notes': 'Conferir certificação e medidas.',
+        'category': 'Quarto',
+        'sort_order': 0,
+        'chosen_option_id': 'o1',
       },
       {
         'id': 'g2',
@@ -418,6 +512,8 @@ class Store extends ChangeNotifier {
         'quantity': 20,
         'acquired': 5,
         'target_date': iso(now.add(const Duration(days: 120))),
+        'category': 'Roupas',
+        'sort_order': 1,
       },
       {
         'id': 'g3',
@@ -428,7 +524,111 @@ class Store extends ChangeNotifier {
         'quantity': 1,
         'acquired': 0,
         'target_date': iso(now.add(const Duration(days: 150))),
+        'category': 'Passeio',
+        'sort_order': 2,
+        'chosen_option_id': 'o4',
       },
+    ];
+    String ago(int days) =>
+        now.subtract(Duration(days: days)).toUtc().toIso8601String();
+    Json option(
+      String id,
+      String goal,
+      String title,
+      String store,
+      int price, {
+      int? list,
+      int? previous,
+      int? previousList,
+      int changed = 0,
+      String description = '',
+    }) => {
+      'id': id,
+      'goal_id': goal,
+      'title': title,
+      'url': 'https://example.com/ninho/$id',
+      'image_url': '',
+      'description': description,
+      'store': store,
+      'price_cents': price,
+      'list_price_cents': list,
+      'notes': '',
+      'previous_price_cents': previous,
+      'previous_list_price_cents': previousList,
+      'price_changed_at': previous == null ? null : ago(changed),
+      'checked_at': ago(0),
+      'check_failed': false,
+      'created_at': ago(30),
+    };
+    data['goal_options'] = [
+      option(
+        'o1',
+        'g1',
+        'Berço multifuncional com colchão',
+        'Loja Exemplo',
+        138990,
+        list: 159990,
+        previous: 145990,
+        previousList: 159990,
+        changed: 1,
+        description: 'Vira cama infantil. Colchão D18 incluso.',
+      ),
+      option(
+        'o2',
+        'g1',
+        'Berço americano e colchão',
+        'Casa Exemplo',
+        112900,
+        description: 'Três alturas de estrado.',
+      ),
+      option(
+        'o3',
+        'g1',
+        'Berço com gaveteiro',
+        'Mercado Exemplo',
+        179900,
+        list: 199900,
+        description: 'Gaveteiro e trocador acoplados.',
+      ),
+      option(
+        'o4',
+        'g3',
+        'Carrinho de passeio compacto',
+        'Loja Exemplo',
+        174990,
+        previous: 169990,
+        changed: 2,
+        description: 'Fecha com uma mão e cabe no porta-malas.',
+      ),
+      option(
+        'o5',
+        'g3',
+        'Travel system com bebê conforto',
+        'Casa Exemplo',
+        249990,
+        list: 279990,
+        description: 'Carrinho, bebê conforto e base para o carro.',
+      ),
+    ];
+    data['goal_option_prices'] = [
+      for (final (i, (id, days, price, list)) in [
+        ('o1', 30, 152990, 159990),
+        ('o1', 18, 149990, 159990),
+        ('o1', 9, 145990, 159990),
+        ('o1', 1, 138990, 159990),
+        ('o2', 30, 112900, null),
+        ('o3', 30, 179900, 199900),
+        ('o4', 30, 169990, null),
+        ('o4', 2, 174990, null),
+        ('o5', 30, 249990, 279990),
+      ].indexed)
+        {
+          'id': 'p$i',
+          'option_id': id,
+          'recorded_at': ago(days),
+          'price_cents': price,
+          'list_price_cents': list,
+        },
     ];
     data['debts'] = [
       {
