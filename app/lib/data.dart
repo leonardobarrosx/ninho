@@ -240,8 +240,10 @@ class Store extends ChangeNotifier {
             rows(
                   resource,
                 ).where((o) => o['goal_id'] == values['goal_id']).length >=
-                5) {
-          throw Exception('Cada item aceita até cinco opções');
+                maxOptions(plus)) {
+          throw Exception(
+            'Cada item aceita até 5 opções, ou 10 com o Ninho Plus',
+          );
         }
         row = {
           ...values,

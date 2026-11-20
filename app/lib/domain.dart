@@ -239,3 +239,6 @@ List<Json> inOrder(List<Json> goals) {
     });
   return [for (final (_, g) in indexed) g];
 }
+
+/// How many options a layette item takes: 5, or 10 when the family has Plus.
+int maxOptions(bool plus) => plus ? 10 : 5;

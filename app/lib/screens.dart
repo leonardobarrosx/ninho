@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'ads.dart';
 import 'data.dart';
 import 'domain.dart';
+import 'export.dart';
 import 'forms.dart';
 import 'gifts.dart';
 import 'layette.dart';
@@ -226,6 +227,15 @@ class _HomeScreenState extends State<HomeScreen> {
           go(familyPage);
         case 'refresh':
           s.refresh();
+        case 'export':
+          perform(
+            () => shareSheets([
+              financeSheet(s.rows('entries')),
+              layetteSheet(s.rows('goals'), s.rows('goal_options')),
+              healthSheet(s.rows('health_events'), s.rows('babies')),
+            ]),
+            done: 'Planilhas de finanças, enxoval e saúde prontas.',
+          );
         case 'logout':
           perform(widget.onLogout);
       }
@@ -238,6 +248,14 @@ class _HomeScreenState extends State<HomeScreen> {
         'Atualizar dados',
         enabled: !s.loading && !saving,
       ),
+      // A Plus benefit: finances, layette and health as spreadsheets.
+      if (s.plus)
+        menuItem(
+          'export',
+          Icons.table_view_outlined,
+          'Exportar planilhas',
+          enabled: !s.loading && !saving,
+        ),
       const PopupMenuDivider(),
       for (final theme in NinhoTheme.values)
         CheckedPopupMenuItem<Object>(

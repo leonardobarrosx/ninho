@@ -251,6 +251,31 @@ await q('select public.remove_member($1,$2)',[shared,z]);
 await db.exec('reset role');
 await q('delete from auth.users where id=$1',[y]);
 assert.equal((await q('select count(*)::int as n from public.households where id=$1',[shared]))[0].n,0);
+// Plus benefits: a family takes 4 people, or 8 with Plus; an item takes 5 options, or 10 with Plus. The gift list
+// page carries the baby shower date and the new palettes.
+const big=Array.from({length:9},(_,i)=>`cccccccc-0000-4000-8000-00000000000${i}`);
+for(const u of big) await q("insert into auth.users values ($1,$2)",[u,u+'@ninho.test']);
+await user(big[0]);
+const fam=(await q("select public.create_household('Família grande') as id"))[0].id;
+async function join(i){await user(big[0]);const t=(await q('select public.create_invite($1) as token',[fam]))[0].token;await user(big[i]);return q('select public.accept_invite($1)',[t]);}
+for(let i=1;i<=3;i++) await join(i);
+await assert.rejects(()=>join(4),/Family is full/);
+await user(big[0]);
+const stroller=(await q("insert into public.goals(household_id,title) values($1,'Carrinho') returning id",[fam]))[0].id;
+for(let i=1;i<=5;i++) await q("insert into public.goal_options(household_id,goal_id,title) values($1,$2,$3)",[fam,stroller,'Opção '+i]);
+await denied("insert into public.goal_options(household_id,goal_id,title) values($1,$2,'Sexta')",[fam,stroller],/Too many options/);
+await denied("insert into public.gift_lists(household_id,slug,title,palette) values($1,'familia-grande','Lista','roxo')",[fam]);
+await db.exec('reset role');
+await q("insert into public.plus_accounts(user_id,source) values($1,'teste')",[big[0]]);
+for(let i=4;i<=7;i++) await join(i);
+await assert.rejects(()=>join(8),/Family is full/);
+await user(big[0]);
+for(let i=6;i<=10;i++) await q("insert into public.goal_options(household_id,goal_id,title) values($1,$2,$3)",[fam,stroller,'Opção '+i]);
+await denied("insert into public.goal_options(household_id,goal_id,title) values($1,$2,'Décima primeira')",[fam,stroller],/Too many options/);
+await q("insert into public.gift_lists(household_id,slug,title,palette,event_date,published,pix_key,pix_name,pix_city) values($1,'familia-grande','Lista','rosa','2027-03-14',true,'a@b.co','ANA','RECIFE')",[fam]);
+await db.exec('reset role');
+const bigPage=(await q("select public.gift_page('familia-grande') as p"))[0].p;
+assert.equal(bigPage.palette,'rosa');assert.equal(bigPage.event_date,'2027-03-14');
 // Plus bought with Google Play: only the API records purchases, a purchase grants Plus once, a refund of that
 // purchase takes it back, a purchase never moves to another account, and a deleted account keeps the record.
 const buyer='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', other2='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -279,4 +304,4 @@ assert.equal((await q('select state,order_id from public.plus_purchases where pu
 await q('delete from auth.users where id=$1',[buyer]);
 assert.equal((await q('select count(*)::int as n from public.plus_purchases where user_id is null'))[0].n,2);
 await db.close();
-console.log('PASS: schema, tenant isolation, composite foreign keys, protected fields and columns, invitation lifecycle and limits, recurring settlement boundaries, atomic purchases, health-cost deduplication, layette options and price history, gift list with Plus and Pix, Plus purchases on Google Play, unlinking on delete, Supabase default privileges, family members, account deletion.');
+console.log('PASS: schema, tenant isolation, composite foreign keys, protected fields and columns, invitation lifecycle and limits, recurring settlement boundaries, atomic purchases, health-cost deduplication, layette options and price history, gift list with Plus and Pix, Plus purchases on Google Play, Plus limits, unlinking on delete, Supabase default privileges, family members, account deletion.');

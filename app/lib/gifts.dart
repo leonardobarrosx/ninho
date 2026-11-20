@@ -24,6 +24,9 @@ const giftPalettes = {
   'ceu': ('Céu', Color(0xff6b9cf2)),
   'lavanda': ('Lavanda', Color(0xff9b8cf0)),
   'areia': ('Areia', Color(0xffc99a5b)),
+  'rosa': ('Rosa', Color(0xffe87ba4)),
+  'oliva': ('Oliva', Color(0xff8aa05a)),
+  'mar': ('Mar', Color(0xff3fa7b5)),
 };
 
 const pixKeyTypes = {
@@ -179,6 +182,12 @@ class _GiftListPageState extends State<GiftListPage> {
           optional: true,
           max: 600,
         ),
+        FieldSpec(
+          'event_date',
+          'Data do chá de bebê (mostra a contagem)',
+          type: 'date',
+          optional: true,
+        ),
       ],
       initial:
           l ??
@@ -322,11 +331,12 @@ class _GiftListPageState extends State<GiftListPage> {
         ),
         const SizedBox(height: 10),
         for (final line in const [
-          'Um link com o nome de vocês para mandar no grupo da família',
-          'Quatro modelos de página e cinco cores',
-          'Quem visita escolhe o item inteiro ou uma parte e paga por Pix',
-          'Vocês confirmam cada Pix e o valor entra na reserva do item',
+          'Lista de presentes com Pix: um link com o nome de vocês, quatro modelos, oito cores e contagem até o chá',
+          'Quem visita escolhe o item inteiro ou uma parte e paga por Pix, direto para vocês, sem taxa',
           'Sem anúncios ao abrir o app, para toda a família',
+          'Família de até 8 pessoas, para avós e babá',
+          'Até 10 opções por item do enxoval',
+          'Exportar finanças, enxoval e saúde em planilha',
         ])
           Padding(
             padding: const EdgeInsets.only(bottom: 8),

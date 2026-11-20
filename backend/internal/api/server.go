@@ -104,7 +104,7 @@ var fields = map[string]string{
 	"goal_options":  "household_id,goal_id,title,url,image_url,description,store,price_cents,list_price_cents,notes",
 	"measurements":  "household_id,baby_id,measured_at,weight_grams,length_mm,notes",
 	"health_events": "household_id,baby_id,title,event_type,event_date,provider,notes,completed",
-	"gift_lists":    "household_id,slug,published,template,palette,title,message,show_prices,allow_partial,pix_key,pix_name,pix_city",
+	"gift_lists":    "household_id,slug,published,template,palette,title,message,show_prices,allow_partial,pix_key,pix_name,pix_city,event_date",
 }
 
 // userKey holds the ID of the user verified by protect in the request context.
@@ -116,7 +116,7 @@ var rpcFields = map[string]string{"create_household": "p_name", "create_invite":
 // Exception messages raised by the migrations' functions and triggers, shown to the user in Portuguese.
 var dbErrors = map[string]string{
 	"Invalid invite":                          "Convite inválido, expirado ou já usado",
-	"Family is full":                          "Esta família já tem quatro pessoas",
+	"Family is full":                          "Esta família está completa: até 4 pessoas, ou 8 com o Ninho Plus",
 	"Already a member":                        "Você já faz parte desta família",
 	"Family limit reached":                    "Você já participa de cinco famílias",
 	"Owner required":                          "Só quem criou a família pode gerar convites",
@@ -128,7 +128,7 @@ var dbErrors = map[string]string{
 	"Owner cannot leave":                      "Quem criou a família não pode sair dela",
 	"Not a member":                            "Essa pessoa não faz parte desta família",
 	"Close this schedule and create a new entry to preserve paid history": "Há pagamentos registrados. Encerre este lançamento e crie outro para mudar valor, tipo ou início",
-	"Too many options": "Cada item aceita até cinco opções",
+	"Too many options": "Cada item aceita até 5 opções, ou 10 com o Ninho Plus",
 	"Plus required":    "A lista de presentes faz parte do Ninho Plus",
 	"Pix required":     "Preencha a chave Pix, o nome e a cidade de quem recebe",
 	"Gift unavailable": "Contribuição não encontrada",

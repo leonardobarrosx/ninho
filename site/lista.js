@@ -299,7 +299,7 @@
     var template = params.get('modelo') || data.template;
     var palette = params.get('cor') || data.palette;
     document.body.dataset.template = /^(cards|polaroid|lista|minimal)$/.test(template) ? template : 'cards';
-    document.body.dataset.palette = /^(pessego|menta|ceu|lavanda|areia)$/.test(palette) ? palette : 'pessego';
+    document.body.dataset.palette = /^(pessego|menta|ceu|lavanda|areia|rosa|oliva|mar)$/.test(palette) ? palette : 'pessego';
     document.title = data.title + ' · Lista de presentes';
     $('titulo').textContent = data.title;
     // Baby names the title does not already say, such as twins when the title names the parents.
@@ -310,10 +310,24 @@
       $('bebes').hidden = false;
     }
     if (data.message) { $('recado').textContent = data.message; $('recado').hidden = false; }
+    var left = daysUntil(data.event_date);
+    if (left !== null && left >= 0) {
+      $('contagem').textContent = left === 0 ? 'O chá de bebê é hoje!' :
+        left === 1 ? 'Falta 1 dia para o chá de bebê' : 'Faltam ' + left + ' dias para o chá de bebê';
+      $('contagem').hidden = false;
+    }
     $('como').hidden = false;
     $('livre').hidden = false;
     document.body.classList.remove('loading');
     render();
+  }
+  // Whole days from today, in the guest's own calendar, to a YYYY-MM-DD date. Null without a date.
+  function daysUntil(date) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date || '');
+    if (!m) return null;
+    var now = new Date();
+    var today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((Date.UTC(+m[1], +m[2] - 1, +m[3]) - today) / 864e5);
   }
   function fail(text) {
     document.body.classList.remove('loading');
@@ -331,11 +345,15 @@
     }).then(show, function (e) { fail(e.message); });
   }
 
+  function inDays(n) {
+    var d = new Date(Date.now() + n * 864e5);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
   function exampleList() {
     return {
       title: 'Enxoval do papai Pedro e da mamãe Ana',
       message: 'A Maria e o João chegam em março e a gente está montando o cantinho deles com muito carinho. Qualquer ajuda, inteira ou um pedacinho, já deixa tudo mais leve. Obrigado por fazer parte!',
-      template: 'cards', palette: 'pessego', show_prices: true, allow_partial: true,
+      template: 'cards', palette: 'pessego', event_date: inDays(45), show_prices: true, allow_partial: true,
       pix_key: 'ana.pedro@exemplo.com', pix_name: 'Ana Souza', pix_city: 'Recife',
       babies: ['Maria', 'João'],
       items: [

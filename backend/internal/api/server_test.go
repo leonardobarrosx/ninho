@@ -137,7 +137,7 @@ func TestCannotMoveRecord(t *testing.T) {
 }
 func TestDatabaseMessages(t *testing.T) {
 	for _, tc := range []struct{ body, want string }{
-		{`{"code":"P0001","message":"Family is full"}`, "Esta família já tem quatro pessoas"},
+		{`{"code":"P0001","message":"Family is full"}`, "Esta família está completa: até 4 pessoas, ou 8 com o Ninho Plus"},
 		{`{"code":"P0001","message":"Internal detail"}`, "Verifique os campos e o acesso à família"},
 		{`<html>Bad gateway</html>`, "Verifique os campos e o acesso à família"},
 	} {

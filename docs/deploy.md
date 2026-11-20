@@ -60,7 +60,7 @@ O Plus é vendido só no app Android, pelo Google Play Billing. Ele vale para a 
 
 1. No Play Console, conclua o perfil de pagamentos (Configuração › Perfil de pagamentos). Sem ele, não é possível criar produtos.
 2. Envie um build com o Billing (este) para uma faixa de teste, mesmo que interna. A Play só libera produtos depois disso.
-3. Em Monetizar › Produtos › Produtos no app, crie o produto `ninho_plus`, com o preço em reais, e ative-o.
+3. Em Monetizar › Produtos › Produtos no app, crie o produto `ninho_plus`, com o preço de R$ 19,90 (compra única), e ative-o. O app mostra o preço que a Google Play informa, então mudar o valor depois não exige nova versão.
 4. No Google Cloud, no projeto vinculado ao Play Console, ative a "Google Play Android Developer API". Crie uma conta de serviço sem papéis e baixe uma chave JSON.
 5. No Play Console, em Usuários e permissões, convide o e-mail da conta de serviço com acesso ao app e as permissões "Ver dados financeiros" e "Gerenciar pedidos e assinaturas".
 6. No Render, cole o conteúdo inteiro do JSON em `GOOGLE_PLAY_SERVICE_ACCOUNT` e `br.com.ninho.app` em `GOOGLE_PLAY_PACKAGE`. O JSON nunca vai para o app, para a Vercel nem para o repositório.

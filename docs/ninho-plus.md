@@ -1,6 +1,6 @@
 # Ninho Plus
 
-> **Substituído (novembro de 2026).** O Plus virou uma compra única por conta, feita no app Android pela Google Play (produto `ninho_plus`, preço definido no Play Console), que libera a lista de presentes com Pix e tira o anúncio de abertura da família. Veja "Google Play Billing" em `docs/deploy.md`. O plano abaixo fica como histórico.
+> **Substituído (novembro de 2026).** O Plus virou uma compra única por conta, feita no app Android pela Google Play (produto `ninho_plus`, R$ 19,90 definido no Play Console), que libera a lista de presentes com Pix e tira o anúncio de abertura da família. Veja "Google Play Billing" em `docs/deploy.md`. O plano abaixo fica como histórico.
 
 Plano da assinatura do Ninho. Nada disto está implementado; este documento registra as decisões propostas e a ordem de trabalho. O que existe hoje continua gratuito, com o anúncio de abertura. O Plus é uma assinatura **por família**: uma pessoa paga e todos os membros daquela família recebem os benefícios.
 

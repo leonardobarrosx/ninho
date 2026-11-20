@@ -8,7 +8,6 @@ import 'theme.dart';
 import 'widgets.dart';
 
 /// A layette item takes up to five product options.
-const maxOptions = 5;
 
 /// Creates an option of [goal] from a store link, filled with what the
 /// store's page says, and returns the message for the person. A page that
@@ -560,12 +559,12 @@ class _LayetteItemPageState extends State<LayetteItemPage> {
                     'Opções',
                     caption: options.isEmpty
                         ? null
-                        : '${options.length} de $maxOptions. A principal define o orçamento do item.',
+                        : '${options.length} de ${maxOptions(s.plus)}. A principal define o orçamento do item.',
                   ),
                   if (options.isEmpty)
                     EmptyState(
                       'Qual produto vocês estão\u00a0olhando?',
-                      'Cole o link da loja e compare até cinco opções.',
+                      'Cole o link da loja e compare até ${maxOptions(s.plus)} opções.',
                       onAdd: saving ? null : () => addOption(g),
                     )
                   else ...[
@@ -574,7 +573,7 @@ class _LayetteItemPageState extends State<LayetteItemPage> {
                         padding: const EdgeInsets.only(bottom: 14),
                         child: optionCard(g, o, wide: wide),
                       ),
-                    if (options.length < maxOptions)
+                    if (options.length < maxOptions(s.plus))
                       OutlinedButton.icon(
                         onPressed: saving ? null : () => addOption(g),
                         icon: const Icon(Icons.add_link_rounded),
