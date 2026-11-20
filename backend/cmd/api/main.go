@@ -13,7 +13,8 @@ import (
 )
 
 func main() {
-	cfg := api.Config{SupabaseURL: strings.TrimRight(os.Getenv("SUPABASE_URL"), "/"), PublishableKey: os.Getenv("SUPABASE_PUBLISHABLE_KEY"), SecretKey: os.Getenv("SUPABASE_SECRET_KEY"), Origins: strings.Split(os.Getenv("ALLOWED_ORIGINS"), ","), CronSecret: os.Getenv("CRON_SECRET")}
+	cfg := api.Config{SupabaseURL: strings.TrimRight(os.Getenv("SUPABASE_URL"), "/"), PublishableKey: os.Getenv("SUPABASE_PUBLISHABLE_KEY"), SecretKey: os.Getenv("SUPABASE_SECRET_KEY"), Origins: strings.Split(os.Getenv("ALLOWED_ORIGINS"), ","), CronSecret: os.Getenv("CRON_SECRET"),
+		MercadoPagoToken: os.Getenv("MERCADOPAGO_ACCESS_TOKEN"), MercadoPagoWebhookSecret: os.Getenv("MERCADOPAGO_WEBHOOK_SECRET"), AppURL: strings.TrimRight(os.Getenv("APP_URL"), "/")}
 	if err := cfg.Validate(); err != nil {
 		slog.Error("invalid configuration", "error", err)
 		os.Exit(1)
@@ -21,6 +22,11 @@ func main() {
 	if cfg.SecretKey == "" {
 		// Google Play requires in-app account deletion, so production needs the key.
 		slog.Warn("SUPABASE_SECRET_KEY is not set: account deletion is disabled")
+	}
+	if cfg.MercadoPagoToken == "" {
+		slog.Warn("MERCADOPAGO_ACCESS_TOKEN is not set: buying Plus is disabled")
+	} else if cfg.MercadoPagoWebhookSecret == "" {
+		slog.Warn("MERCADOPAGO_WEBHOOK_SECRET is not set: webhook notices are accepted unsigned and checked with Mercado Pago")
 	}
 	port := os.Getenv("PORT")
 	if port == "" {

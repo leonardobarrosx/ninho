@@ -28,7 +28,7 @@ Aplique as migrações antes de publicar uma versão nova do app: o app lê as t
   ```
 
   O horário é em UTC (9h UTC = 6h em Brasília). A API responde 202 e confere os links em segundo plano.
-- `202611200001_gift_list.sql`: lista de presentes com Pix, liberada pelo Ninho Plus (R$ 10, pago uma vez por conta). Enquanto a compra não está no app, libere o Plus de uma conta pelo SQL Editor:
+- `202611200001_gift_list.sql`: lista de presentes com Pix, liberada pelo Ninho Plus (R$ 10, pago uma vez por conta). Para dar o Plus a uma conta sem compra, como a sua, use o SQL Editor:
 
   ```sql
   insert into public.plus_accounts(user_id, source)
@@ -36,6 +36,7 @@ Aplique as migrações antes de publicar uma versão nova do app: o app lê as t
   ```
 
   A página pública fica em `/lista/<endereço>` e chama a API; `/lista/exemplo` mostra uma lista de exemplo, sem API.
+- `202611210001_plus_purchase.sql`: compra do Plus pelo Mercado Pago. Guarda cada pagamento e libera ou retira o Plus da conta. Veja "Mercado Pago" abaixo.
 
 ## Render
 
@@ -48,9 +49,24 @@ Crie um serviço a partir deste repositório usando o blueprint `render.yaml`, o
 - `SUPABASE_PUBLISHABLE_KEY`: chave publishable ou anon, nunca service role.
 - `SUPABASE_SECRET_KEY`: chave secreta (ou service role) do projeto. A API a usa para excluir, pela API admin do Auth, o usuário da sessão verificada, para a conferência diária de preços e para as páginas públicas das listas de presentes. Sem ela, essas três respondem que estão indisponíveis; a exclusão de conta é exigida pela Google Play. Ela nunca vai para o app nem para a Vercel.
 - `CRON_SECRET`: um valor aleatório longo (por exemplo, `openssl rand -hex 32`), o mesmo guardado no Vault acima. Sem ele, `/internal/refresh-prices` responde 404.
+- `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET` e `APP_URL`: compra do Plus, descrita em "Mercado Pago" abaixo. Sem o token, o botão de compra responde que ela ainda não está disponível.
 - `ALLOWED_ORIGINS`: URLs web exatas, separadas por vírgula, sem barra final. Inclua só o domínio de produção e as prévias que forem necessárias.
 
 O blueprint usa o plano gratuito como ponto de partida. Confirme limites e custos na conta antes de criar o serviço. O processo lê `PORT`, aceita encerramento gracioso e roda como usuário sem privilégios no contêiner.
+
+## Mercado Pago
+
+O Plus é vendido na versão web, pelo Checkout Pro do Mercado Pago, com Pix ou cartão à vista. Boleto fica de fora porque leva dias para compensar. O dinheiro cai na conta do Mercado Pago dona do token. O app Android não mostra o botão de compra: na Google Play, recursos digitais vendidos dentro do app precisam usar o Google Play Billing. Quem compra na web tem o Plus no Android também, porque ele vale para a conta.
+
+1. Na conta do Mercado Pago que vai receber, cadastre uma chave Pix (Seu negócio › Pix), senão o checkout não oferece Pix.
+2. Em [Suas integrações](https://www.mercadopago.com.br/developers/panel/app), crie uma aplicação do tipo "Pagamentos online", com Checkout Pro.
+3. Em Credenciais de produção, copie o Access Token (`APP_USR-...`) para `MERCADOPAGO_ACCESS_TOKEN` no Render. Ele nunca vai para o app, para a Vercel nem para o repositório.
+4. Em Webhooks › Configurar notificações, modo produção, use `https://SUA_API/webhooks/mercadopago` e marque só o evento "Pagamentos". Salve, revele a "Assinatura secreta" e copie-a para `MERCADOPAGO_WEBHOOK_SECRET`.
+5. Em `APP_URL`, coloque o endereço do site, sem barra final (por exemplo, `https://ninho.app`). Quem paga volta para `APP_URL/app/?plus=retorno`.
+
+A API nunca confia no aviso nem no retorno do navegador: ela lê o pagamento no Mercado Pago com o token antes de registrar. O Plus é liberado quando o pagamento está aprovado, em reais e com o valor cheio. Um estorno ou uma contestação desse pagamento retira o Plus. O webhook cobre quem fecha a aba antes de voltar, como num Pix pago depois. Sem a assinatura secreta, o webhook ainda funciona, porque cada aviso é conferido no Mercado Pago, mas deixe-a configurada.
+
+Para testar antes de vender, use as credenciais e as contas de teste do painel, troque o token no Render e volte ao de produção depois. Os pagamentos ficam em `public.plus_payments`.
 
 ## Vercel
 

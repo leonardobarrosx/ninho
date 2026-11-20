@@ -13,11 +13,19 @@ services:
         sync: false
       - key: SUPABASE_PUBLISHABLE_KEY
         sync: false
-      # Secret key, used only to delete accounts with the Auth admin API. Never in the app or web build.
+      # Secret key: account deletion, the daily price check, public gift lists and Plus payments. Never in the app or web build.
       - key: SUPABASE_SECRET_KEY
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false
       # Guards POST /internal/refresh-prices, called once a day by pg_cron (docs/deploy.md).
       - key: CRON_SECRET
+        sync: false
+      # Plus purchases (docs/deploy.md): Mercado Pago production access token and webhook secret signature.
+      - key: MERCADOPAGO_ACCESS_TOKEN
+        sync: false
+      - key: MERCADOPAGO_WEBHOOK_SECRET
+        sync: false
+      # The site's https address, without a path; buyers return to its /app/ after paying.
+      - key: APP_URL
         sync: false

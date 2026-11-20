@@ -30,6 +30,13 @@ type Config struct {
 	CronSecret string
 	// Pages fetches store pages for link previews. Nil uses pageClient, which refuses private addresses.
 	Pages *http.Client
+	// MercadoPagoToken is the production access token of the Mercado Pago account that receives Plus
+	// purchases. Empty disables buying Plus. MercadoPagoWebhookSecret is the secret signature of its webhook.
+	MercadoPagoToken, MercadoPagoWebhookSecret string
+	// MercadoPagoURL replaces https://api.mercadopago.com in tests.
+	MercadoPagoURL string
+	// AppURL is the site's address, such as https://ninho.app; the buyer returns to its /app/ after paying.
+	AppURL string
 }
 
 func (c Config) Validate() error {
@@ -56,6 +63,15 @@ func (c Config) Validate() error {
 		u, e := url.Parse(strings.TrimSpace(o))
 		if e != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.Path != "" || u.RawQuery != "" || u.User != nil {
 			return errors.New("origins must be exact URLs without paths or wildcards")
+		}
+	}
+	if c.MercadoPagoToken != "" {
+		if c.SecretKey == "" {
+			return errors.New("MERCADOPAGO_ACCESS_TOKEN requires SUPABASE_SECRET_KEY")
+		}
+		u, e := url.Parse(c.AppURL)
+		if e != nil || u.Scheme != "https" || u.Host == "" || strings.Trim(u.Path, "/") != "" || u.RawQuery != "" || u.User != nil {
+			return errors.New("APP_URL must be the site's https address, without a path")
 		}
 	}
 	return nil
@@ -129,6 +145,7 @@ func New(c Config) http.Handler {
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { send(w, 200, map[string]string{"status": "ok"}) })
 	mux.HandleFunc("/internal/refresh-prices", s.refreshPrices)
 	mux.HandleFunc("/v1/public/lists/", s.giftList)
+	mux.HandleFunc("/webhooks/mercadopago", s.mercadoPagoWebhook)
 	mux.Handle("/v1/", s.protect(http.HandlerFunc(s.route)))
 	return s.middleware(mux)
 }
@@ -229,6 +246,10 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(parts) == 1 && parts[0] == "account" {
 		s.deleteAccount(w, r)
+		return
+	}
+	if len(parts) == 2 && parts[0] == "plus" {
+		s.plus(w, r, parts[1])
 		return
 	}
 	if len(parts) == 1 && parts[0] == "preview" {

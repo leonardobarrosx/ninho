@@ -251,5 +251,27 @@ await q('select public.remove_member($1,$2)',[shared,z]);
 await db.exec('reset role');
 await q('delete from auth.users where id=$1',[y]);
 assert.equal((await q('select count(*)::int as n from public.households where id=$1',[shared]))[0].n,0);
+// Plus bought through Mercado Pago: only the API records payments, an approved one grants Plus once, a refund of
+// that payment takes it back, a payment never moves to another account, and a deleted account keeps the record.
+const buyer='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', other2='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+await q("insert into auth.users values ($1,'buyer@ninho.test'),($2,'other@ninho.test')",[buyer,other2]);
+await user(buyer);
+await denied("select public.record_plus_payment('1',$1,'approved',1000,true)",[buyer],/permission denied/);
+await denied('select * from public.plus_payments',[],/permission denied/);
+await db.exec('reset role');
+assert.equal((await q("select public.record_plus_payment('900',$1,'pending',1000,false) as p",[buyer]))[0].p,false);
+assert.equal((await q("select public.record_plus_payment('900',$1,'approved',1000,true) as p",[buyer]))[0].p,true);
+assert.equal((await q("select public.record_plus_payment('900',$1,'approved',1000,true) as p",[buyer]))[0].p,true);
+assert.equal((await q('select source from public.plus_accounts where user_id=$1',[buyer]))[0].source,'mercadopago:900');
+await denied("select public.record_plus_payment('900',$1,'approved',1000,true)",[other2],/Payment mismatch/);
+await denied("select public.record_plus_payment('9a',$1,'approved',1000,true)",[other2]);
+// A second payment by the same account changes nothing, and its refund does not take away the first one's Plus.
+assert.equal((await q("select public.record_plus_payment('901',$1,'approved',1000,true) as p",[buyer]))[0].p,true);
+assert.equal((await q("select public.record_plus_payment('901',$1,'refunded',1000,false) as p",[buyer]))[0].p,true);
+assert.equal((await q("select public.record_plus_payment('900',$1,'refunded',1000,false) as p",[buyer]))[0].p,false);
+assert.equal((await q("select status from public.plus_payments where id='900'"))[0].status,'refunded');
+assert.equal((await q("select public.record_plus_payment('902',$1,'approved',1000,true) as p",['9f9f9f9f-9f9f-4f9f-8f9f-9f9f9f9f9f9f']))[0].p,false);
+await q('delete from auth.users where id=$1',[buyer]);
+assert.equal((await q("select count(*)::int as n from public.plus_payments where id in ('900','901') and user_id is null"))[0].n,2);
 await db.close();
-console.log('PASS: schema, tenant isolation, composite foreign keys, protected fields and columns, invitation lifecycle and limits, recurring settlement boundaries, atomic purchases, health-cost deduplication, layette options and price history, gift list with Plus and Pix, unlinking on delete, Supabase default privileges, family members, account deletion.');
+console.log('PASS: schema, tenant isolation, composite foreign keys, protected fields and columns, invitation lifecycle and limits, recurring settlement boundaries, atomic purchases, health-cost deduplication, layette options and price history, gift list with Plus and Pix, Plus purchases, unlinking on delete, Supabase default privileges, family members, account deletion.');

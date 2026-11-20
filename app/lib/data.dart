@@ -21,6 +21,19 @@ Uri? sitePage(String page) {
 }
 
 final privacyPolicy = sitePage('privacidade.html');
+
+/// The payment Mercado Pago's checkout came back with, when the web app opens
+/// at /app/?plus=retorno. The id is empty when no payment was made.
+({String id, String status})? plusReturn(Uri url, {bool web = kIsWeb}) {
+  final q = url.queryParameters;
+  if (!web || q['plus'] != 'retorno') return null;
+  final id = q['payment_id'] ?? q['collection_id'] ?? '';
+  return (
+    id: RegExp(r'^\d{1,30}$').hasMatch(id) ? id : '',
+    status: q['status'] ?? q['collection_status'] ?? '',
+  );
+}
+
 const resources = [
   'babies',
   'entries',
@@ -263,6 +276,25 @@ class Store extends ChangeNotifier {
     }
     final result = await request('POST', 'preview', {'url': url});
     return Map<String, dynamic>.from(result as Map);
+  }
+
+  /// Opens a Mercado Pago payment for Plus and returns its page.
+  Future<Uri> plusCheckout() async {
+    if (demo) throw Exception('Na demonstração, o Plus já vem ativo.');
+    final result = await request('POST', 'plus/checkout') as Map;
+    return Uri.parse(result['url'] as String);
+  }
+
+  /// Checks a Plus payment with Mercado Pago. Says whether Plus is on now and
+  /// the payment's status, such as approved, pending or rejected.
+  Future<({bool plus, String status})> confirmPlus(String paymentId) async {
+    final result =
+        await request('POST', 'plus/confirm', {'payment_id': paymentId}) as Map;
+    await refresh();
+    return (
+      plus: result['plus'] == true,
+      status: result['status'] as String? ?? '',
+    );
   }
 
   // The demonstration has no database, so these do what its triggers do.

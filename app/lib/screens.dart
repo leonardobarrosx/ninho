@@ -64,6 +64,30 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     s.addListener(changed);
+    if (plusReturn(Uri.base) case final payment?) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => plusPaid(payment));
+    }
+  }
+
+  /// Back from Mercado Pago: checks the payment and, with Plus on, opens the
+  /// gift list.
+  Future<void> plusPaid(({String id, String status}) payment) async {
+    var on = false;
+    await perform(() async {
+      if (payment.id.isEmpty) {
+        return 'O pagamento não foi concluído. Tente de novo quando quiser.';
+      }
+      final result = await s.confirmPlus(payment.id);
+      on = result.plus;
+      return on
+          ? 'Pronto! O Ninho Plus está ativo na sua conta.'
+          : switch (result.status) {
+              'pending' || 'in_process' || 'authorized' =>
+                'Pagamento em análise. O Plus é liberado assim que o Mercado Pago aprovar.',
+              _ => 'O pagamento não foi aprovado. Tente de novo quando quiser.',
+            };
+    });
+    if (on && mounted) openGifts();
   }
 
   @override

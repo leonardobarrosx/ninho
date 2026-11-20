@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'data.dart';
 import 'domain.dart';
 import 'forms.dart';
@@ -341,19 +343,43 @@ class _GiftListPageState extends State<GiftListPage> {
         ),
         const SizedBox(height: 6),
         Text(
-          'A compra pelo app chega em breve.',
+          kIsWeb
+              ? 'Pague por Pix ou cartão, pelo Mercado Pago. O Plus é liberado assim que o pagamento é aprovado.'
+              : 'A compra pelo app Android chega em breve.',
           style: TextStyle(color: p.muted),
         ),
         const SizedBox(height: 16),
-        if (sitePage('lista/exemplo') case final example?)
-          OutlinedButton.icon(
-            onPressed: () => openLink(context, example.toString()),
-            icon: const Icon(Icons.visibility_outlined, size: 18),
-            label: const Text('Ver uma lista de exemplo'),
-          ),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            if (kIsWeb)
+              FilledButton.icon(
+                onPressed: saving ? null : buyPlus,
+                icon: const Icon(Icons.lock_open_rounded, size: 18),
+                label: const Text('Comprar o Plus'),
+              ),
+            if (sitePage('lista/exemplo') case final example?)
+              OutlinedButton.icon(
+                onPressed: () => openLink(context, example.toString()),
+                icon: const Icon(Icons.visibility_outlined, size: 18),
+                label: const Text('Ver uma lista de exemplo'),
+              ),
+          ],
+        ),
       ],
     ),
   );
+
+  /// Goes to Mercado Pago's checkout in this tab. It comes back to
+  /// /app/?plus=retorno, where the home screen checks the payment.
+  Future<void> buyPlus() => perform(() async {
+    final page = await s.plusCheckout();
+    if (!await launchUrl(page, webOnlyWindowName: '_self')) {
+      throw Exception('Não foi possível abrir o Mercado Pago.');
+    }
+    return 'Abrindo o Mercado Pago…';
+  });
 
   Widget start() => EmptyState(
     'Monte a página de\u00a0vocês',
