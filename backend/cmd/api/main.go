@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	cfg := api.Config{SupabaseURL: strings.TrimRight(os.Getenv("SUPABASE_URL"), "/"), PublishableKey: os.Getenv("SUPABASE_PUBLISHABLE_KEY"), SecretKey: os.Getenv("SUPABASE_SECRET_KEY"), Origins: strings.Split(os.Getenv("ALLOWED_ORIGINS"), ",")}
+	cfg := api.Config{SupabaseURL: strings.TrimRight(os.Getenv("SUPABASE_URL"), "/"), PublishableKey: os.Getenv("SUPABASE_PUBLISHABLE_KEY"), SecretKey: os.Getenv("SUPABASE_SECRET_KEY"), Origins: strings.Split(os.Getenv("ALLOWED_ORIGINS"), ","), CronSecret: os.Getenv("CRON_SECRET")}
 	if err := cfg.Validate(); err != nil {
 		slog.Error("invalid configuration", "error", err)
 		os.Exit(1)

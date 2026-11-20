@@ -55,6 +55,40 @@ assert.equal(goals[0].acquired,1);assert.equal(Number(goals[0].saved_cents),0);
 assert.equal((await q("select * from public.entries where category='Enxoval'")).length,1);
 await denied('select public.buy_goal($1,1,80000,current_date)',[goal]);
 assert.equal((await q("select * from public.entries where category='Enxoval'")).length,1);
+// Layette options: the first option becomes the main one and sets the budget, price changes go to the history
+// and keep the previous price, at most five options, and deleting the main one hands over to the cheapest.
+const crib=(await q("insert into public.goals(household_id,title,quantity,category,sort_order) values($1,'Carrinho',2,'Passeio',3) returning id",[h]))[0].id;
+const opt1=(await q("insert into public.goal_options(household_id,goal_id,title,url,price_cents,list_price_cents) values($1,$2,'Carrinho A','https://loja.test/a',150000,180000) returning id",[h,crib]))[0].id;
+let cribRow=(await q('select * from public.goals where id=$1',[crib]))[0];
+assert.equal(cribRow.chosen_option_id,opt1);assert.equal(Number(cribRow.target_cents),300000);
+const opt2=(await q("insert into public.goal_options(household_id,goal_id,title,price_cents) values($1,$2,'Carrinho B',120000) returning id",[h,crib]))[0].id;
+assert.equal((await q('select chosen_option_id from public.goals where id=$1',[crib]))[0].chosen_option_id,opt1);
+await q('update public.goals set chosen_option_id=$1 where id=$2',[opt2,crib]);
+assert.equal(Number((await q('select target_cents from public.goals where id=$1',[crib]))[0].target_cents),240000);
+await q('update public.goal_options set price_cents=110000 where id=$1',[opt2]);
+let o2=(await q('select * from public.goal_options where id=$1',[opt2]))[0];
+assert.equal(Number(o2.previous_price_cents),120000);assert.ok(o2.price_changed_at);
+assert.equal(Number((await q('select target_cents from public.goals where id=$1',[crib]))[0].target_cents),220000);
+assert.deepEqual((await q('select price_cents from public.goal_option_prices where option_id=$1 order by recorded_at,price_cents desc',[opt2])).map(r=>Number(r.price_cents)),[120000,110000]);
+await q("update public.goal_options set title='Carrinho B2' where id=$1",[opt2]);
+assert.equal((await q('select * from public.goal_option_prices where option_id=$1',[opt2])).length,2);
+await denied('update public.goal_options set previous_price_cents=1 where id=$1',[opt2],/permission denied/);
+await denied('update public.goal_options set checked_at=now() where id=$1',[opt2],/permission denied/);
+await denied("insert into public.goal_option_prices(household_id,option_id,price_cents) values($1,$2,1)",[h,opt2],/permission denied/);
+await denied('update public.goal_options set goal_id=$1 where id=$2',[goal,opt2],/permission denied/);
+await denied("insert into public.goal_options(household_id,goal_id,title,image_url) values($1,$2,'Http','http://loja.test/a.jpg')",[h,crib]);
+// The main option must be one of the goal's own options.
+const otherOpt=(await q("insert into public.goal_options(household_id,goal_id,title,price_cents) values($1,$2,'Berço X',90000) returning id",[h,goal]))[0].id;
+await denied('update public.goals set chosen_option_id=$1 where id=$2',[otherOpt,crib]);
+for(const t of ['C','D','E']) await q("insert into public.goal_options(household_id,goal_id,title) values($1,$2,$3)",[h,crib,'Carrinho '+t]);
+await denied("insert into public.goal_options(household_id,goal_id,title) values($1,$2,'Sexto')",[h,crib],/Too many options/);
+await q('delete from public.goal_options where id=$1',[opt2]);
+assert.equal((await q('select chosen_option_id from public.goals where id=$1',[crib]))[0].chosen_option_id,opt1);
+await user(b);
+assert.equal((await q('select * from public.goal_options')).length,0);
+assert.equal((await q('select * from public.goal_option_prices')).length,0);
+await denied("insert into public.goal_options(household_id,goal_id,title) values($1,$2,'Intrusa')",[h,crib]);
+await user(a);
 const health=(await q("insert into public.health_events(household_id,title,event_type,event_date) values($1,'Exame','exam',current_date) returning id",[h]))[0].id;
 await q('select public.record_health_cost($1,25000,current_date)',[health]);
 await denied('select public.record_health_cost($1,25000,current_date)',[health]);
@@ -129,6 +163,8 @@ await q('select public.settle_entry($1,current_date,true)',[soloEntry]);
 const soloHealth=(await q("insert into public.health_events(household_id,baby_id,title,event_type,event_date) values($1,$2,'Pediatra','appointment',current_date) returning id",[solo,soloBaby]))[0].id;
 await q('select public.record_health_cost($1,15000,current_date)',[soloHealth]);
 await q("insert into public.goals(household_id,title) values($1,'Berço')",[solo]);
+await q("insert into public.goal_options(household_id,goal_id,title,price_cents) select household_id,id,'Berço Y',50000 from public.goals where household_id=$1",[solo]);
+assert.equal((await q('select count(*)::int as n from public.goal_option_prices where household_id=$1',[solo]))[0].n,1);
 await q("insert into public.debts(household_id,title,balance_cents) values($1,'Cartão',1000)",[solo]);
 await q('select public.create_invite($1)',[solo]);
 const shared=(await q("select public.create_household('Compartilhada') as id"))[0].id;
@@ -144,7 +180,7 @@ const forX=(await q('select public.create_invite($1) as token',[third]))[0].toke
 await user(x);await q('select public.accept_invite($1)',[forX]);
 await db.exec('reset role');
 await q('delete from auth.users where id=$1',[x]);
-for(const t of ['households','household_members','household_invites','babies','entries','settlements','debts','goals','measurements','health_events'])
+for(const t of ['households','household_members','household_invites','babies','entries','settlements','debts','goals','goal_options','goal_option_prices','measurements','health_events'])
  assert.equal((await q(`select count(*)::int as n from public.${t} where ${t==='households'?'id':'household_id'}=$1`,[solo]))[0].n,0,`${t} left behind`);
 assert.equal((await q('select owner_id from public.households where id=$1',[shared]))[0].owner_id,y);
 assert.deepEqual((await q('select user_id,role from public.household_members where household_id=$1 order by role',[shared])).map(m=>m.user_id+' '+m.role),[y+' owner',z+' parent']);
@@ -160,4 +196,4 @@ await db.exec('reset role');
 await q('delete from auth.users where id=$1',[y]);
 assert.equal((await q('select count(*)::int as n from public.households where id=$1',[shared]))[0].n,0);
 await db.close();
-console.log('PASS: schema, tenant isolation, composite foreign keys, protected fields and columns, invitation lifecycle and limits, recurring settlement boundaries, atomic purchases, health-cost deduplication, unlinking on delete, Supabase default privileges, family members, account deletion.');
+console.log('PASS: schema, tenant isolation, composite foreign keys, protected fields and columns, invitation lifecycle and limits, recurring settlement boundaries, atomic purchases, health-cost deduplication, layette options and price history, unlinking on delete, Supabase default privileges, family members, account deletion.');
