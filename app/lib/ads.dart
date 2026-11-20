@@ -8,9 +8,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 const testAppOpenUnit = 'ca-app-pub-3940256099942544/9257395921';
 const _releaseUnit = String.fromEnvironment('ADMOB_APP_OPEN_ID');
 
-/// At most one app open ad per interval. A new install also waits one
-/// interval, so nobody meets an ad on their first visits.
-const adInterval = Duration(hours: 4);
+/// The shortest gap between two app open ads. Zero: every launch of a closed
+/// app shows one, except the very first after installing. Coming back from
+/// the background is not a launch, so it never shows one.
+const adInterval = Duration.zero;
 
 /// How long a launch may wait for the consent check and the ad. Past it the
 /// app opens, and an ad that arrives late is thrown away.
@@ -18,6 +19,10 @@ const adWait = Duration(seconds: 4);
 
 /// Saved on the device: when the next app open ad may appear.
 const nextAdKey = 'ninho.ads.next';
+
+/// Saved on the device: whether the family of the last account here has
+/// Plus, which turns the ads off from the next launch on.
+const adFreeKey = 'ninho.ads.plus';
 
 /// The unit to load: Google's test unit in debug and profile builds, and the
 /// real one only in release builds that receive ADMOB_APP_OPEN_ID.
@@ -78,8 +83,9 @@ abstract class OpenAd {
   Future<void> dispose();
 }
 
-/// AdMob on Android: Google's consent message first, then at most one app
-/// open ad per [adInterval], shown over the launch cover. Nothing here may
+/// AdMob on Android: Google's consent message first, then an app open ad on
+/// each launch after the first (see [adInterval]), shown over the launch
+/// cover. A family with Plus gets none. Nothing here may
 /// hold the app up: every wait has a deadline or ends in "no ad".
 class AdMobAds extends Ads {
   AdMobAds._(
@@ -113,6 +119,8 @@ class AdMobAds extends Ads {
     if (unit == null) return const Ads();
     try {
       final prefs = await SharedPreferences.getInstance();
+      // Plus has no ads, so it has no consent message either.
+      if (prefs.getBool(adFreeKey) ?? false) return const Ads();
       final now = DateTime.now();
       final saved = prefs.getInt(nextAdKey);
       if (saved == null) {

@@ -33,8 +33,11 @@
       <li><strong>Conta:</strong> e-mail e senha. A senha fica com o serviço de autenticação apenas em forma de hash; ninguém do Ninho consegue lê-la. Para segurança, o serviço também registra a data do cadastro e do último acesso, o endereço IP e o navegador ou aparelho usados para entrar.</li>
       <li><strong>Família:</strong> o nome da família, quem participa dela (o e-mail de cada pessoa aparece para as demais) e os convites. Do código de convite guardamos só um resumo criptográfico, válido por 72 horas.</li>
       <li><strong>Finanças:</strong> receitas, salários, despesas, contas mensais, categorias, valores, datas, pagamentos registrados, dívidas (credor, saldo e parcela), metas e enxoval (orçamentos, reservas, quantidades e compras) e observações.</li>
+      <li><strong>Links de produtos do enxoval:</strong> os links que você cola, com o que a página da loja mostra (nome, descrição, foto, loja, preço e preço sem desconto) e o histórico de preços. A API do Ninho abre esses links ao salvar e uma vez por dia para conferir o preço; a loja vê esse acesso vindo do servidor do Ninho, não de você. As fotos vêm direto do site da loja, que recebe o IP de quem as vê.</li>
+      <li><strong>Lista de presentes (Ninho Plus):</strong> o título, o recado, o endereço da página e a chave Pix, o nome e a cidade de quem recebe, que ficam visíveis para quem tiver o link publicado, junto com os itens escolhidos, as fotos e o quanto falta de cada um. De quem presenteia, guardamos o nome, o recado, os valores e os itens escolhidos, que só a família vê. O Pix vai direto do banco de quem presenteia para a chave da família: o Ninho não recebe, não processa e não vê esses pagamentos.</li>
+      <li><strong>Compra do Ninho Plus:</strong> a compra é feita no app Android, pela Google Play, que trata os dados de pagamento. O Ninho não vê esses dados: guardamos só o código da compra, o número do pedido, a situação e a conta que comprou, para liberar o Plus e para os registros financeiros. A Google recebe, com a compra, um código derivado da sua conta no Ninho, que não a identifica. Se você excluir a conta, o registro da compra fica sem ligação com ela.</li>
       <li><strong>Bebê e saúde:</strong> nome ou apelido do bebê, data prevista do parto, data de nascimento, peso, comprimento e registros de consultas, exames, vacinas, medicamentos e outros, com profissional ou local, anotações e custos. Dados de saúde são dados pessoais sensíveis (art. 5º, II) e, quando se referem a uma criança, têm também a proteção do art. 14 da LGPD.</li>
-      <li><strong>No aparelho:</strong> o tema escolhido e, no Android, quando o próximo anúncio pode aparecer. O SDK de anúncios do Google guarda ali as suas escolhas de consentimento.</li>
+      <li><strong>No aparelho:</strong> o tema escolhido e, no Android, quando o próximo anúncio pode aparecer e se a família tem o Plus, que tira os anúncios. O SDK de anúncios do Google guarda ali as suas escolhas de consentimento.</li>
       <li><strong>Anúncios (só no Android):</strong> descritos na seção Anúncios, abaixo.</li>
       <li><strong>Registros técnicos:</strong> a API e os provedores de hospedagem registram dados técnicos de cada acesso, como IP, data e hora, endereço chamado e resultado. Os registros da API do Ninho não incluem tokens, nomes, valores nem informações médicas.</li>
     </ul>
@@ -49,6 +52,7 @@
         <tr><td>Criar e manter sua conta e permitir que você entre com segurança</td><td>Conta</td><td>Execução de contrato (art. 7º, V)</td></tr>
         <tr><td>Guardar, sincronizar e compartilhar com a sua família os registros que você faz</td><td>Família e finanças</td><td>Execução de contrato (art. 7º, V)</td></tr>
         <tr><td>Registrar a saúde e o crescimento do bebê</td><td>Bebê e saúde</td><td>Consentimento específico e em destaque da mãe, do pai ou do responsável legal (art. 11, I, e art. 14, § 1º), dado ao salvar esses registros</td></tr>
+        <tr><td>Vender e liberar o Ninho Plus e manter os registros financeiros</td><td>Compra do Ninho Plus</td><td>Execução de contrato (art. 7º, V) e cumprimento de obrigação legal (art. 7º, II)</td></tr>
         <tr><td>Proteger o serviço contra abuso e fraude e cumprir a lei</td><td>Registros técnicos</td><td>Legítimo interesse (art. 7º, IX) e cumprimento de obrigação legal (art. 7º, II)</td></tr>
         <tr><td>Mostrar anúncios que mantêm o app gratuito</td><td>Dados de anúncios (Android)</td><td>Anúncios personalizados: consentimento, dado na mensagem do Google onde ela aparece (Espaço Econômico Europeu, Reino Unido e Suíça). Nas demais regiões, inclusive no Brasil, o app pede só anúncios não personalizados, com base no legítimo interesse (art. 7º, IX) e com a oposição descrita em Anúncios</td></tr>
       </table>
@@ -58,7 +62,7 @@
 
   <section>
     <h2>Anúncios</h2>
-    <p>No app Android, o Ninho é gratuito porque mostra um anúncio do Google AdMob ao abrir o app: no máximo uma vez a cada 4 horas, nunca nas primeiras horas depois da instalação e nunca durante a recuperação de senha. A versão web não tem anúncios.</p>
+    <p>No app Android, o Ninho é gratuito porque mostra um anúncio do Google AdMob ao abrir o app: a cada abertura com o app fechado, menos a primeira depois da instalação, e nunca ao voltar do segundo plano nem durante a recuperação de senha. Famílias com o Ninho Plus não veem anúncios. A versão web não tem anúncios.</p>
     <p>Para escolher, entregar e medir os anúncios, o SDK Google Mobile Ads coleta automaticamente: o endereço IP, que indica a localização aproximada do aparelho; o identificador de publicidade do Android e o app set ID; interações como a abertura do app, toques e visualizações de anúncios; e informações de diagnóstico e desempenho. O Google trata esses dados como controlador independente, conforme a política dele sobre <a href="https://policies.google.com/technologies/partner-sites" rel="noopener">como usa informações de apps parceiros</a>.</p>
     <p>Nunca enviamos ao Google nem a anunciantes dados de finanças, da família, do bebê ou de saúde. Anúncios de conteúdo adulto ficam bloqueados.</p>
     <p>No Espaço Econômico Europeu, no Reino Unido e na Suíça, o app pede seu consentimento pela mensagem do Google antes de carregar anúncios, e você muda a escolha em Família › Sua conta › Privacidade dos anúncios. Nas demais regiões, inclusive no Brasil, e sempre que o app não consegue confirmar uma escolha, ele pede ao Google apenas anúncios não personalizados. Em qualquer lugar, você pode excluir ou redefinir o identificador de publicidade nas configurações de privacidade do Android, o que impede a personalização baseada nele.</p>
@@ -69,8 +73,10 @@
     <ul>
       <li><strong>As outras pessoas da sua família no Ninho</strong> veem e editam os dados daquela família, inclusive finanças e saúde, e veem o seu e-mail. Só entra quem recebe um convite.</li>
       <li><strong>Operadores que mantêm o serviço</strong> e tratam os dados em nosso nome: Supabase (banco de dados e autenticação), Render (API) e Vercel (site e versão web).</li>
+      <li><strong>Google (Google Play)</strong>, como controlador independente dos dados de pagamento, quando você compra o Ninho Plus.</li>
       <li><strong>Google (AdMob)</strong>, como controlador independente dos dados de anúncios no Android.</li>
       <li><strong>Google (fontes da versão web)</strong>: quando um texto tem caracteres que a fonte do Ninho não cobre, como emojis, o navegador baixa de fonts.gstatic.com a fonte que falta. Nesse acesso, o Google recebe o endereço IP e dados técnicos do navegador, mas nenhum conteúdo do Ninho. O app Android não faz esse acesso.</li>
+      <li><strong>Quem tem o link da sua lista de presentes</strong>, se você a publicar: vê o que a página mostra, descrito acima. Você tira a página do ar quando quiser.</li>
       <li><strong>Autoridades</strong>, quando a lei ou uma ordem judicial exigir.</li>
     </ul>
     <p>Não vendemos dados pessoais.</p>
@@ -110,7 +116,7 @@
     <p>Novas versões são publicadas nesta página, com a data no topo. Se a mudança for relevante, avisaremos por e-mail ou no app antes de ela valer.</p>
   </section>
 
-  <footer><a href="/">Abrir o Ninho</a><a href="/excluir-conta.html">Excluir sua conta</a></footer>
+  <footer><a href="/app/">Abrir o Ninho</a><a href="/excluir-conta.html">Excluir sua conta</a></footer>
 </main>
 </body>
 </html>

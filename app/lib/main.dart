@@ -28,6 +28,10 @@ void registerLicenses() => LicenseRegistry.addLicense(() async* {
   ], await rootBundle.loadString('assets/fonts/OFL.txt'));
 });
 
+/// Whether the web app was opened from the site's demonstration link, which
+/// skips the sign-in screen. Android never gets a query string.
+bool opensDemo(Uri url) => kIsWeb && url.queryParameters.containsKey('demo');
+
 class NinhoApp extends StatefulWidget {
   final NinhoTheme initialTheme;
   final Ads ads;
@@ -58,11 +62,14 @@ class _NinhoAppState extends State<NinhoApp> {
     widget.ads.start(blocked: () => recovery).whenComplete(() {
       if (mounted && covering) setState(() => covering = false);
     });
+    if (configured && Supabase.instance.client.auth.currentSession != null) {
+      store = Store();
+      store!.refresh();
+    } else if (opensDemo(Uri.base)) {
+      // The site's "Explorar demonstração" links straight to /app/?demo.
+      store = Store(demo: true);
+    }
     if (configured) {
-      if (Supabase.instance.client.auth.currentSession != null) {
-        store = Store();
-        store!.refresh();
-      }
       subscription = Supabase.instance.client.auth.onAuthStateChange.listen((
         state,
       ) {

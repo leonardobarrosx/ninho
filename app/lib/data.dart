@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'ads.dart' show adFreeKey;
+import 'billing.dart';
 import 'domain.dart';
 
 const apiUrl = String.fromEnvironment('API_URL');
@@ -21,12 +24,18 @@ Uri? sitePage(String page) {
 }
 
 final privacyPolicy = sitePage('privacidade.html');
+
 const resources = [
   'babies',
   'entries',
   'settlements',
   'debts',
   'goals',
+  'goal_options',
+  'goal_option_prices',
+  'gift_lists',
+  'gift_contributions',
+  'gift_contribution_items',
   'measurements',
   'health_events',
 ];
@@ -38,13 +47,28 @@ class Store extends ChangeNotifier {
   List<Json> households = [];
   List<Json> members = [];
   String? householdId;
+  // Whether someone in this family bought Plus, which opens the gift list.
+  bool plus = false;
   bool loading = false;
   bool _disposed = false;
   int _refreshVersion = 0;
   String? error;
   Store({this.demo = false}) {
     if (demo) _seed();
+    final user = configured && !demo
+        ? Supabase.instance.client.auth.currentUser?.id
+        : null;
+    if (buysPlus && user != null) {
+      billing = PlayBilling(
+        userId: user,
+        send: (product, token) async =>
+            (await sendPlusPurchase(product, token)).state,
+      );
+    }
   }
+
+  /// Google Play Billing, in the Android app with an account. Null elsewhere.
+  PlayBilling? billing;
   List<Json> rows(String name) => data[name] ?? [];
   String get familyName =>
       households
@@ -167,15 +191,21 @@ class Store extends ChangeNotifier {
         final loaded = await Future.wait([
           for (final r in resources) _load(r, familyId: selected),
           _members(selected),
+          request('POST', 'rpc/household_has_plus', {
+            'p_household_id': selected,
+          }),
         ]);
         if (_disposed || version != _refreshVersion) return;
         for (var i = 0; i < resources.length; i++) {
           data[resources[i]] = loaded[i];
         }
-        members = loaded.last;
+        members = loaded[resources.length] as List<Json>;
+        plus = loaded.last == true;
+        unawaited(_rememberPlus(plus));
       } else {
         data.clear();
         members = [];
+        plus = false;
       }
     } catch (e) {
       if (_disposed || version != _refreshVersion) return;
@@ -193,7 +223,9 @@ class Store extends ChangeNotifier {
     await refresh();
   }
 
-  Future<void> save(
+  /// Creates a record, or changes the one with [id]. Returns the record as
+  /// saved, with the values the database filled in.
+  Future<Json?> save(
     String resource,
     Json values, {
     String? id,
@@ -201,30 +233,150 @@ class Store extends ChangeNotifier {
   }) async {
     if (demo) {
       final list = data.putIfAbsent(resource, () => []);
+      final Json row;
+      Json? old;
       if (id == null) {
-        list.add({
+        if (resource == 'goal_options' &&
+            rows(
+                  resource,
+                ).where((o) => o['goal_id'] == values['goal_id']).length >=
+                maxOptions(plus)) {
+          throw Exception(
+            'Cada item aceita até 5 opções, ou 10 com o Ninho Plus',
+          );
+        }
+        row = {
           ...values,
           'id': DateTime.now().microsecondsSinceEpoch.toString(),
           'household_id': householdId,
-        });
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        };
+        list.add(row);
       } else {
         final i = list.indexWhere((e) => e['id'] == id);
-        list[i] = {...list[i], ...values};
+        old = list[i];
+        row = list[i] = {...old, ...values};
       }
+      if (resource == 'goal_options') _demoOption(row, old);
+      if (resource == 'goals') _demoBudget(row);
       notifyListeners();
-      return;
+      return row;
     }
-    await request(
+    final result = await request(
       id == null ? 'POST' : 'PATCH',
       'data/$resource${id == null ? '' : '/$id'}',
       {...values, if (id == null) 'household_id': householdId},
     );
     if (reload) await refresh();
+    return result is List && result.isNotEmpty
+        ? Map<String, dynamic>.from(result.first as Map)
+        : null;
+  }
+
+  /// What a store's page says about a product: title, description, image,
+  /// store, price and list price. Any of them may be missing.
+  Future<Json> preview(String url) async {
+    if (demo) {
+      throw Exception(
+        'Na demonstração, foto e preço não são buscados. Preencha à mão.',
+      );
+    }
+    final result = await request('POST', 'preview', {'url': url});
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  /// Keeps on the device whether this family has Plus, so the next launch
+  /// knows to skip the ad before anything loads.
+  Future<void> _rememberPlus(bool value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(adFreeKey, value);
+    } catch (_) {
+      // Without it, the next launch may show one more ad.
+    }
+  }
+
+  /// Sends a Google Play purchase of Plus to the server, which checks it with
+  /// Google. Says whether Plus is on now and the purchase's state: purchased,
+  /// pending or canceled.
+  Future<({bool plus, String state})> sendPlusPurchase(
+    String productId,
+    String token,
+  ) async {
+    final result =
+        await request('POST', 'plus/google', {
+              'product_id': productId,
+              'purchase_token': token,
+            })
+            as Map;
+    await refresh();
+    return (
+      plus: result['plus'] == true,
+      state: result['state'] as String? ?? '',
+    );
+  }
+
+  // The demonstration has no database, so these do what its triggers do.
+  void _demoOption(Json o, Json? old) {
+    final price = maybe(o, 'price_cents');
+    final list = maybe(o, 'list_price_cents');
+    final changed =
+        old == null ||
+        price != maybe(old, 'price_cents') ||
+        list != maybe(old, 'list_price_cents');
+    if (old != null && old['price_cents'] != null && price != null && changed) {
+      o['previous_price_cents'] = old['price_cents'];
+      o['previous_list_price_cents'] = old['list_price_cents'];
+      o['price_changed_at'] = DateTime.now().toUtc().toIso8601String();
+    }
+    if (price != null && changed) {
+      data.putIfAbsent('goal_option_prices', () => []).add({
+        'id': 'p${DateTime.now().microsecondsSinceEpoch}',
+        'option_id': o['id'],
+        'recorded_at': DateTime.now().toUtc().toIso8601String(),
+        'price_cents': price,
+        'list_price_cents': list,
+      });
+    }
+    final goal = rows(
+      'goals',
+    ).where((g) => g['id'] == o['goal_id']).firstOrNull;
+    if (goal == null) return;
+    goal['chosen_option_id'] ??= o['id'];
+    _demoBudget(goal);
+  }
+
+  void _demoBudget(Json goal) {
+    final chosen = rows(
+      'goal_options',
+    ).where((o) => o['id'] == goal['chosen_option_id']).firstOrNull;
+    final price = chosen == null ? null : maybe(chosen, 'price_cents');
+    if (price != null) goal['target_cents'] = price * number(goal, 'quantity');
   }
 
   Future<void> remove(String resource, String id) async {
     if (demo) {
       data[resource]?.removeWhere((e) => e['id'] == id);
+      if (resource == 'goals') {
+        final gone = rows('goal_options').where((o) => o['goal_id'] == id);
+        final ids = {for (final o in gone) o['id']};
+        data['goal_options']?.removeWhere((o) => ids.contains(o['id']));
+        data['goal_option_prices']?.removeWhere(
+          (h) => ids.contains(h['option_id']),
+        );
+      }
+      if (resource == 'goal_options') {
+        data['goal_option_prices']?.removeWhere((h) => h['option_id'] == id);
+        for (final g in rows(
+          'goals',
+        ).where((g) => g['chosen_option_id'] == id)) {
+          final next = optionsOf({
+            'id': g['id'],
+          }, rows('goal_options')).firstOrNull;
+          g['chosen_option_id'] = next?['id'];
+          _demoBudget(g);
+        }
+      }
       notifyListeners();
       return;
     }
@@ -267,6 +419,30 @@ class Store extends ChangeNotifier {
             'Enxoval',
           );
         }
+      } else if (name == 'decide_gift') {
+        final c = rows(
+          'gift_contributions',
+        ).firstWhere((e) => e['id'] == args['p_id']);
+        final status = args['p_status'] as String;
+        final sign = status == 'confirmed'
+            ? 1
+            : c['status'] == 'confirmed'
+            ? -1
+            : 0;
+        if (c['status'] != status && sign != 0) {
+          for (final i in rows(
+            'gift_contribution_items',
+          ).where((i) => i['contribution_id'] == c['id'])) {
+            final g = rows('goals').where((g) => g['id'] == i['goal_id']);
+            for (final goal in g) {
+              goal['saved_cents'] =
+                  (number(goal, 'saved_cents') +
+                          sign * number(i, 'amount_cents'))
+                      .clamp(0, 99999999999);
+            }
+          }
+        }
+        c['status'] = status;
       } else if (name == 'record_health_cost') {
         final e = rows(
           'health_events',
@@ -315,6 +491,7 @@ class Store extends ChangeNotifier {
     final now = DateTime.now();
     String day(int d) => iso(DateTime(now.year, now.month, d));
     householdId = 'demo';
+    plus = true;
     households = [
       {'id': 'demo', 'name': 'Família de exemplo'},
     ];
@@ -408,6 +585,9 @@ class Store extends ChangeNotifier {
         'acquired': 0,
         'target_date': iso(now.add(const Duration(days: 90))),
         'notes': 'Conferir certificação e medidas.',
+        'category': 'Quarto',
+        'sort_order': 0,
+        'chosen_option_id': 'o1',
       },
       {
         'id': 'g2',
@@ -418,6 +598,8 @@ class Store extends ChangeNotifier {
         'quantity': 20,
         'acquired': 5,
         'target_date': iso(now.add(const Duration(days: 120))),
+        'category': 'Roupas',
+        'sort_order': 1,
       },
       {
         'id': 'g3',
@@ -428,6 +610,163 @@ class Store extends ChangeNotifier {
         'quantity': 1,
         'acquired': 0,
         'target_date': iso(now.add(const Duration(days: 150))),
+        'category': 'Passeio',
+        'sort_order': 2,
+        'chosen_option_id': 'o4',
+      },
+    ];
+    String ago(int days) =>
+        now.subtract(Duration(days: days)).toUtc().toIso8601String();
+    Json option(
+      String id,
+      String goal,
+      String title,
+      String store,
+      int price, {
+      int? list,
+      int? previous,
+      int? previousList,
+      int changed = 0,
+      String description = '',
+    }) => {
+      'id': id,
+      'goal_id': goal,
+      'title': title,
+      'url': 'https://example.com/ninho/$id',
+      'image_url': '',
+      'description': description,
+      'store': store,
+      'price_cents': price,
+      'list_price_cents': list,
+      'notes': '',
+      'previous_price_cents': previous,
+      'previous_list_price_cents': previousList,
+      'price_changed_at': previous == null ? null : ago(changed),
+      'checked_at': ago(0),
+      'check_failed': false,
+      'created_at': ago(30),
+    };
+    data['goal_options'] = [
+      option(
+        'o1',
+        'g1',
+        'Berço multifuncional com colchão',
+        'Loja Exemplo',
+        138990,
+        list: 159990,
+        previous: 145990,
+        previousList: 159990,
+        changed: 1,
+        description: 'Vira cama infantil. Colchão D18 incluso.',
+      ),
+      option(
+        'o2',
+        'g1',
+        'Berço americano e colchão',
+        'Casa Exemplo',
+        112900,
+        description: 'Três alturas de estrado.',
+      ),
+      option(
+        'o3',
+        'g1',
+        'Berço com gaveteiro',
+        'Mercado Exemplo',
+        179900,
+        list: 199900,
+        description: 'Gaveteiro e trocador acoplados.',
+      ),
+      option(
+        'o4',
+        'g3',
+        'Carrinho de passeio compacto',
+        'Loja Exemplo',
+        174990,
+        previous: 169990,
+        changed: 2,
+        description: 'Fecha com uma mão e cabe no porta-malas.',
+      ),
+      option(
+        'o5',
+        'g3',
+        'Travel system com bebê conforto',
+        'Casa Exemplo',
+        249990,
+        list: 279990,
+        description: 'Carrinho, bebê conforto e base para o carro.',
+      ),
+    ];
+    data['goal_option_prices'] = [
+      for (final (i, (id, days, price, list)) in [
+        ('o1', 30, 152990, 159990),
+        ('o1', 18, 149990, 159990),
+        ('o1', 9, 145990, 159990),
+        ('o1', 1, 138990, 159990),
+        ('o2', 30, 112900, null),
+        ('o3', 30, 179900, 199900),
+        ('o4', 30, 169990, null),
+        ('o4', 2, 174990, null),
+        ('o5', 30, 249990, 279990),
+      ].indexed)
+        {
+          'id': 'p$i',
+          'option_id': id,
+          'recorded_at': ago(days),
+          'price_cents': price,
+          'list_price_cents': list,
+        },
+    ];
+    data['gift_lists'] = [
+      {
+        'id': 'l1',
+        'slug': 'exemplo',
+        'published': true,
+        'template': 'cards',
+        'palette': 'pessego',
+        'title': 'Enxoval do papai Pedro e da mamãe Ana',
+        'message':
+            'A gente está montando o cantinho do bebê com muito carinho. Qualquer ajuda, inteira ou um pedacinho, já deixa tudo mais leve.',
+        'show_prices': true,
+        'allow_partial': true,
+        'pix_key': 'ana.pedro@exemplo.com',
+        'pix_name': 'Ana Souza',
+        'pix_city': 'Recife',
+      },
+    ];
+    data['gift_contributions'] = [
+      {
+        'id': 'c1',
+        'list_id': 'l1',
+        'name': 'Tia Rosa',
+        'message': 'Com muito carinho para o bebê!',
+        'amount_cents': 50000,
+        'status': 'pending',
+        'created_at': ago(0),
+      },
+      {
+        'id': 'c2',
+        'list_id': 'l1',
+        'name': 'Vó Lúcia',
+        'message': '',
+        'amount_cents': 12000,
+        'status': 'confirmed',
+        'created_at': ago(3),
+      },
+    ];
+    data['gift_contribution_items'] = [
+      {
+        'id': 'ci1',
+        'contribution_id': 'c1',
+        'goal_id': 'g1',
+        'title': 'Berço e colchão',
+        'amount_cents': 50000,
+      },
+      {
+        'id': 'ci2',
+        'contribution_id': 'c2',
+        'goal_id': 'g2',
+        'title': 'Roupas para os primeiros meses',
+        'amount_cents': 12000,
       },
     ];
     data['debts'] = [
@@ -472,6 +811,7 @@ class Store extends ChangeNotifier {
 
   @override
   void dispose() {
+    billing?.dispose();
     _disposed = true;
     _refreshVersion++;
     _client.close();

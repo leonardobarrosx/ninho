@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lista de presentes · Ninho</title>
+  <meta name="description" content="Escolha um presente do enxoval, inteiro ou uma parte, e envie por Pix direto para a família.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#fff2ea">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Lista de presentes do enxoval">
+  <meta property="og:description" content="Escolha um presente, inteiro ou uma parte, e envie por Pix direto para a família.">
+  <meta property="og:image" content="/assets/og.jpg">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preload" href="/assets/fonts/Nunito-ExtraBold.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/Nunito-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/lista.css">
+</head>
+<body class="loading">
+  <main id="conteudo">
+    <header class="hero">
+      <div class="hero-in">
+        <p class="eyebrow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.4-7.5-10.1A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.8c0 5.7-7.5 10.1-7.5 10.1Z"/></svg> Lista de presentes</p>
+        <h1 id="titulo">Carregando a lista…</h1>
+        <p class="babies" id="bebes" hidden></p>
+        <p class="countdown" id="contagem" hidden></p>
+        <p class="message" id="recado" hidden></p>
+        <div class="how" id="como" hidden>
+          <span><b>1</b> Escolha um item ou uma parte dele</span>
+          <span><b>2</b> Pague com o Pix que aparece</span>
+          <span><b>3</b> Conte para a família que enviou</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="items" aria-labelledby="titulo">
+      <div class="grid" id="itens" aria-live="polite"></div>
+      <div class="free" id="livre" hidden>
+        <div>
+          <h2>Prefere dar um valor livre?</h2>
+          <p>A família usa no que estiver faltando.</p>
+        </div>
+        <form id="livre-form" class="free-form">
+          <label for="livre-valor" class="sr">Valor livre em reais</label>
+          <span class="money-input"><span aria-hidden="true">R$</span><input id="livre-valor" inputmode="decimal" placeholder="50,00" autocomplete="off"></span>
+          <button class="btn btn-soft" type="submit">Adicionar</button>
+        </form>
+      </div>
+    </section>
+
+    <p class="error" id="erro" role="alert" hidden></p>
+  </main>
+
+  <footer class="foot">
+    <p>Os Pix vão direto para a família. O Ninho não recebe nem guarda dinheiro, só ajuda a família a organizar os presentes.</p>
+    <a href="/" class="made">Feito com o <b>Ninho</b></a>
+  </footer>
+
+  <div class="cart" id="carrinho" hidden>
+    <div class="cart-in">
+      <div>
+        <strong id="carrinho-total">R$ 0,00</strong>
+        <span id="carrinho-itens">0 presentes</span>
+      </div>
+      <button class="btn btn-primary" type="button" id="continuar">Continuar</button>
+    </div>
+  </div>
+
+  <dialog id="pagar" aria-labelledby="pagar-titulo">
+    <form method="dialog" class="close-row"><button class="icon-btn" aria-label="Fechar">×</button></form>
+    <div class="step" id="passo-nome">
+      <h2 id="pagar-titulo">Seu presente</h2>
+      <ul class="summary" id="resumo"></ul>
+      <form id="nome-form" class="fields">
+        <label>Seu nome<input id="nome" maxlength="80" autocomplete="name" required placeholder="Como a família te chama"></label>
+        <label>Recado para a família <span class="opt">(opcional)</span><textarea id="mensagem" maxlength="600" rows="3" placeholder="Um carinho para quem está chegando"></textarea></label>
+        <button class="btn btn-primary wide" type="submit">Gerar o Pix</button>
+      </form>
+    </div>
+    <div class="step" id="passo-pix" hidden>
+      <h2>Pague com Pix</h2>
+      <p class="muted">Abra o app do seu banco, escolha Pix e leia o QR code, ou use o Pix copia e cola.</p>
+      <div class="qr" id="qr" role="img" aria-label="QR code do Pix"></div>
+      <p class="amount" id="valor-pix"></p>
+      <p class="receiver" id="recebedor"></p>
+      <label class="copy">Pix copia e cola<textarea id="copia" readonly rows="3"></textarea></label>
+      <button class="btn btn-soft wide" type="button" id="copiar">Copiar código</button>
+      <button class="btn btn-primary wide" type="button" id="enviei">Já fiz o Pix</button>
+      <p class="muted small">Só toque depois de pagar. A família confirma quando o dinheiro chegar.</p>
+    </div>
+    <div class="step thanks" id="passo-obrigado" hidden>
+      <div class="heart" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.4-7.5-10.1A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.8c0 5.7-7.5 10.1-7.5 10.1Z"/></svg></div>
+      <h2 id="obrigado-titulo">Obrigado!</h2>
+      <p class="muted">Seu presente foi registrado. A família vai ver o seu nome e o recado assim que conferir o Pix.</p>
+      <form method="dialog"><button class="btn btn-primary wide">Voltar à lista</button></form>
+    </div>
+  </dialog>
+
+  <div class="toast" id="aviso" role="status" aria-live="polite"></div>
+
+  <script src="/config.js"></script>
+  <script src="/assets/qrcode.js"></script>
+  <script src="/lista.js"></script>
+</body>
+</html>

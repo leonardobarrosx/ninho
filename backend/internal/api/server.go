@@ -15,16 +15,26 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 type Config struct {
 	SupabaseURL, PublishableKey string
-	// SecretKey is used for one call only: deleting the signed-in user with the Auth admin API.
-	// Without it, account deletion answers 503 and everything else works.
+	// SecretKey deletes the signed-in user with the Auth admin API, runs the daily price check and serves the
+	// public gift lists through two database functions. Without it, those answer 503 and the rest works.
 	SecretKey string
 	Origins   []string
 	Client    *http.Client
+	// CronSecret guards POST /internal/refresh-prices, which pg_cron calls once a day. Empty disables it.
+	CronSecret string
+	// Pages fetches store pages for link previews. Nil uses pageClient, which refuses private addresses.
+	Pages *http.Client
+	// PlayServiceAccount is the JSON key of the Google Cloud service account that reads this app's purchases on
+	// Google Play, and PlayPackage the app's package name. Empty disables buying Plus.
+	PlayServiceAccount, PlayPackage string
+	// GooglePlayURL replaces https://androidpublisher.googleapis.com in tests.
+	GooglePlayURL string
 }
 
 func (c Config) Validate() error {
@@ -53,6 +63,17 @@ func (c Config) Validate() error {
 			return errors.New("origins must be exact URLs without paths or wildcards")
 		}
 	}
+	if c.PlayServiceAccount != "" {
+		if c.SecretKey == "" {
+			return errors.New("GOOGLE_PLAY_SERVICE_ACCOUNT requires SUPABASE_SECRET_KEY")
+		}
+		if !regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$`).MatchString(c.PlayPackage) {
+			return errors.New("GOOGLE_PLAY_PACKAGE must be the app's package name")
+		}
+		if _, err := parseServiceAccount(c.PlayServiceAccount); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -61,10 +82,16 @@ type quota struct {
 	until time.Time
 }
 type Server struct {
-	cfg    Config
-	client *http.Client
-	mu     sync.Mutex
-	limits map[string]quota
+	cfg        Config
+	client     *http.Client
+	pages      *http.Client
+	mu         sync.Mutex
+	limits     map[string]quota
+	refreshing atomic.Bool
+	// play reads purchases on Google Play; nil when buying Plus is off. Its access token is kept until it expires.
+	play           *serviceAccount
+	playToken      string
+	playTokenUntil time.Time
 }
 
 var uuid = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -73,21 +100,23 @@ var fields = map[string]string{
 	"babies":        "household_id,name,due_date,birth_date,notes",
 	"entries":       "household_id,title,kind,category,amount_cents,start_date,end_date,recurrence,notes",
 	"debts":         "household_id,title,creditor,balance_cents,installment_cents,due_day,notes",
-	"goals":         "household_id,title,priority,target_cents,saved_cents,quantity,acquired,target_date,notes",
+	"goals":         "household_id,title,priority,target_cents,saved_cents,quantity,acquired,target_date,notes,category,sort_order,chosen_option_id,gift",
+	"goal_options":  "household_id,goal_id,title,url,image_url,description,store,price_cents,list_price_cents,notes",
 	"measurements":  "household_id,baby_id,measured_at,weight_grams,length_mm,notes",
 	"health_events": "household_id,baby_id,title,event_type,event_date,provider,notes,completed",
+	"gift_lists":    "household_id,slug,published,template,palette,title,message,show_prices,allow_partial,pix_key,pix_name,pix_city,event_date",
 }
 
 // userKey holds the ID of the user verified by protect in the request context.
 type userKey struct{}
 
-var readable = map[string]bool{"households": true, "household_members": true, "babies": true, "entries": true, "settlements": true, "debts": true, "goals": true, "measurements": true, "health_events": true}
-var rpcFields = map[string]string{"create_household": "p_name", "create_invite": "p_household_id", "accept_invite": "p_token", "settle_entry": "p_entry_id,p_occurrence,p_paid", "buy_goal": "p_goal_id,p_quantity,p_cost_cents,p_date", "record_health_cost": "p_event_id,p_amount_cents,p_date", "list_members": "p_household_id", "remove_member": "p_household_id,p_user_id", "leave_household": "p_household_id"}
+var readable = map[string]bool{"households": true, "household_members": true, "babies": true, "entries": true, "settlements": true, "debts": true, "goals": true, "goal_options": true, "goal_option_prices": true, "gift_lists": true, "gift_contributions": true, "gift_contribution_items": true, "measurements": true, "health_events": true}
+var rpcFields = map[string]string{"create_household": "p_name", "create_invite": "p_household_id", "accept_invite": "p_token", "settle_entry": "p_entry_id,p_occurrence,p_paid", "buy_goal": "p_goal_id,p_quantity,p_cost_cents,p_date", "record_health_cost": "p_event_id,p_amount_cents,p_date", "list_members": "p_household_id", "remove_member": "p_household_id,p_user_id", "leave_household": "p_household_id", "household_has_plus": "p_household_id", "decide_gift": "p_id,p_status"}
 
 // Exception messages raised by the migrations' functions and triggers, shown to the user in Portuguese.
 var dbErrors = map[string]string{
 	"Invalid invite":                          "Convite inválido, expirado ou já usado",
-	"Family is full":                          "Esta família já tem quatro pessoas",
+	"Family is full":                          "Esta família está completa: até 4 pessoas, ou 8 com o Ninho Plus",
 	"Already a member":                        "Você já faz parte desta família",
 	"Family limit reached":                    "Você já participa de cinco famílias",
 	"Owner required":                          "Só quem criou a família pode gerar convites",
@@ -99,6 +128,11 @@ var dbErrors = map[string]string{
 	"Owner cannot leave":                      "Quem criou a família não pode sair dela",
 	"Not a member":                            "Essa pessoa não faz parte desta família",
 	"Close this schedule and create a new entry to preserve paid history": "Há pagamentos registrados. Encerre este lançamento e crie outro para mudar valor, tipo ou início",
+	"Too many options": "Cada item aceita até 5 opções, ou 10 com o Ninho Plus",
+	"Plus required":    "A lista de presentes faz parte do Ninho Plus",
+	"Pix required":     "Preencha a chave Pix, o nome e a cidade de quem recebe",
+	"Gift unavailable": "Contribuição não encontrada",
+	"Invalid status":   "Situação inválida",
 }
 
 func New(c Config) http.Handler {
@@ -106,9 +140,18 @@ func New(c Config) http.Handler {
 	if client == nil {
 		client = &http.Client{Timeout: 12 * time.Second}
 	}
-	s := &Server{cfg: c, client: client, limits: map[string]quota{}}
+	pages := c.Pages
+	if pages == nil {
+		pages = pageClient()
+	}
+	s := &Server{cfg: c, client: client, pages: pages, limits: map[string]quota{}}
+	if c.PlayServiceAccount != "" {
+		s.play, _ = parseServiceAccount(c.PlayServiceAccount)
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { send(w, 200, map[string]string{"status": "ok"}) })
+	mux.HandleFunc("/internal/refresh-prices", s.refreshPrices)
+	mux.HandleFunc("/v1/public/lists/", s.giftList)
 	mux.Handle("/v1/", s.protect(http.HandlerFunc(s.route)))
 	return s.middleware(mux)
 }
@@ -179,7 +222,10 @@ func (s *Server) protect(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey{}, user.ID)))
 	})
 }
-func (s *Server) allow(id string) bool {
+func (s *Server) allow(id string) bool { return s.allowN(id, 180) }
+
+// allowN counts one request for key in the current minute and says whether it stays within n.
+func (s *Server) allowN(id string, n int) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now()
@@ -196,7 +242,7 @@ func (s *Server) allow(id string) bool {
 	}
 	v.count++
 	s.limits[id] = v
-	return v.count <= 180
+	return v.count <= n
 }
 func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(strings.Trim(strings.TrimPrefix(r.URL.Path, "/v1/"), "/"), "/")
@@ -206,6 +252,14 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(parts) == 1 && parts[0] == "account" {
 		s.deleteAccount(w, r)
+		return
+	}
+	if len(parts) == 2 && parts[0] == "plus" && parts[1] == "google" {
+		s.plusGoogle(w, r)
+		return
+	}
+	if len(parts) == 1 && parts[0] == "preview" {
+		s.preview(w, r)
 		return
 	}
 	if len(parts) < 2 || len(parts) > 3 || parts[0] != "data" || !readable[parts[1]] {

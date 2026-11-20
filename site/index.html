@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ninho · As contas da casa e a chegada do bebê</title>
+  <meta name="description" content="O Ninho junta orçamento, enxoval, saúde e crescimento do bebê num lugar só, compartilhado com quem cuida junto. Grátis, no Android e no navegador.">
+  <meta name="theme-color" content="#fff2ea">
+  <meta name="theme-color" content="#221e2d" media="(prefers-color-scheme: dark)">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Ninho · As contas da casa e a chegada do bebê">
+  <meta property="og:description" content="Orçamento, enxoval, saúde e crescimento do bebê num lugar só, com quem cuida junto.">
+  <meta property="og:image" content="/assets/og.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" href="/app/icons/apple-touch-icon.png">
+  <link rel="preload" href="/assets/fonts/Nunito-ExtraBold.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/Nunito-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <script>
+    // Links from Supabase Auth e-mails (confirmation, password recovery) carry a
+    // code or a token. They belong to the app, which lives in /app/.
+    (function () {
+      var s = location.search, h = location.hash;
+      if (/[?&](code|error|error_description)=/.test(s) || /access_token=|type=recovery|error=/.test(h)) {
+        location.replace('/app/' + s + h);
+      }
+    })();
+    // The same theme the app saves (shared_preferences on the web), so the site
+    // and the app always match.
+    try {
+      var saved = JSON.parse(localStorage.getItem('flutter.ninho.theme') || 'null');
+      if (saved === 'dark' || saved === 'light') document.documentElement.dataset.theme = saved;
+    } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip" href="#conteudo">Pular para o conteúdo</a>
+
+  <header class="top" data-top>
+    <div class="wrap top-row">
+      <a class="brand" href="/" aria-label="Ninho, início">
+        <svg class="mark" viewBox="0 0 256 256" aria-hidden="true"><use href="#ninho-mark"/></svg>
+        <svg class="word" viewBox="0 0 370 132" aria-hidden="true"><use href="#ninho-word"/></svg>
+      </a>
+      <nav class="nav" aria-label="Seções">
+        <a href="#recursos">Recursos</a>
+        <a href="#familia">Família</a>
+        <a href="#privacidade">Privacidade</a>
+        <a href="#duvidas">Dúvidas</a>
+      </nav>
+      <div class="top-actions">
+        <button class="icon-btn" type="button" data-theme-toggle aria-label="Alternar tema claro e escuro" title="Alternar tema">
+          <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>
+          <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.6A8.2 8.2 0 0 1 9.4 4a8.2 8.2 0 1 0 10.6 10.6Z"/></svg>
+        </button>
+        <a class="btn btn-small btn-ghost hide-sm" href="/app/">Entrar</a>
+        <a class="btn btn-small btn-primary" href="/app/?demo">Ver o app</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="conteudo">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-bg" aria-hidden="true">
+        <svg class="arm arm-l" viewBox="0 0 160 160"><path d="M68 16C34 29 17 53 17 85c0 47 41 77 100 79"/></svg>
+        <svg class="arm arm-r" viewBox="0 0 160 160"><path d="M92 16c33 14 52 37 52 69 0 29-20 56-55 70"/></svg>
+      </div>
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow" data-in>Finanças da família · chegada do bebê</p>
+          <h1 data-in>As contas da casa e a chegada do bebê, no mesmo&nbsp;ninho.</h1>
+          <p class="lead" data-in>Orçamento, enxoval, saúde e crescimento do bebê num lugar só. Quem cuida junto vê as mesmas contas, os mesmos compromissos e o mesmo saldo.</p>
+          <div class="cta-row" data-in>
+            <a class="btn btn-primary" href="/app/?demo">
+              Explorar a demonstração
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+            </a>
+            <a class="btn btn-ghost" href="/app/">Criar conta grátis</a>
+          </div>
+          <ul class="facts" data-in>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.2 4.2L19 7"/></svg>Grátis</li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.2 4.2L19 7"/></svg>Android e navegador</li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.2 4.2L19 7"/></svg>Até 4 pessoas por família</li>
+          </ul>
+        </div>
+
+        <div class="hero-visual" data-in>
+          <figure class="browser">
+            <div class="browser-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+            <img class="light-only" src="/assets/screens/desktop-visao-geral.webp" width="1440" height="900" alt="Visão geral do Ninho no computador: saldo do mês, contas a pagar, metas do enxoval e despesas por categoria, com a barra lateral de páginas">
+            <img class="dark-only" src="/assets/screens/desktop-visao-geral-escuro.webp" width="1440" height="900" alt="Visão geral do Ninho no computador, no tema escuro">
+          </figure>
+          <figure class="phone phone-hero">
+            <img class="light-only" src="/assets/screens/phone-visao-geral.webp" width="390" height="844" alt="Visão geral do Ninho no celular, com as cinco abas embaixo">
+            <img class="dark-only" src="/assets/screens/phone-escuro.webp" width="390" height="844" alt="Visão geral do Ninho no celular, no tema escuro">
+          </figure>
+          <div class="chip chip-a" aria-hidden="true">
+            <span class="dot dot-mint"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7"/></svg></span>
+            <span><b>Aluguel</b><small>Pago · R$ 1.847,36</small></span>
+          </div>
+          <div class="chip chip-b" aria-hidden="true">
+            <span class="dot dot-indigo"><svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.4-7.5-10A4.3 4.3 0 0 1 12 8a4.3 4.3 0 0 1 7.5 2.5c0 5.6-7.5 10-7.5 10Z"/></svg></span>
+            <span><b>Consulta de pré-natal</b><small>Em 9 dias</small></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Module strip -->
+    <section class="modules" id="recursos" aria-labelledby="modulos-titulo">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <p class="eyebrow">O que muda quando o bebê chega</p>
+          <h2 id="modulos-titulo">Quatro assuntos que costumam ficar em quatro lugares.</h2>
+          <p class="sub">Planilha de gastos, lista do enxoval, cartão de vacina e as anotações das consultas. O Ninho junta tudo e liga um ao outro.</p>
+        </div>
+        <ul class="module-grid">
+          <li class="module" data-reveal style="--tone: var(--mint-tint); --icon: var(--mint-icon)">
+            <span class="module-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M16 14.5h2"/></svg></span>
+            <h3>Finanças</h3>
+            <p>Receitas, contas do mês e despesas únicas. Cada vencimento é pago à parte, com saldo previsto e realizado.</p>
+          </li>
+          <li class="module" data-reveal style="--tone: var(--sunny-tint); --icon: var(--sunny-icon)">
+            <span class="module-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16l-1.4 10.2a2 2 0 0 1-2 1.8H7.4a2 2 0 0 1-2-1.8Z"/><path d="M8.5 9V7.5a3.5 3.5 0 0 1 7 0V9"/></svg></span>
+            <h3>Enxoval e metas</h3>
+            <p>Itens por prioridade, com orçamento, reserva e presentes. A compra entra direto nas despesas.</p>
+          </li>
+          <li class="module" data-reveal style="--tone: var(--sky-tint); --icon: var(--sky-icon)">
+            <span class="module-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="4.5"/><path d="M10.3 8.4h.01M13.7 8.4h.01M10.6 10.6c.8.6 2 .6 2.8 0M5 21c.6-3.7 3.4-6 7-6s6.4 2.3 7 6"/></svg></span>
+            <h3>Bebê</h3>
+            <p>Data prevista ou de nascimento, peso e comprimento, com o gráfico da evolução. Gêmeos também cabem.</p>
+          </li>
+          <li class="module" data-reveal style="--tone: var(--indigo-tint); --icon: var(--indigo-icon)">
+            <span class="module-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.4-7.5-10A4.3 4.3 0 0 1 12 8a4.3 4.3 0 0 1 7.5 2.5c0 5.6-7.5 10-7.5 10Z"/><path d="M8 12.5h2.2l1.3-2.3 1.6 4 1.2-1.7H16"/></svg></span>
+            <h3>Saúde</h3>
+            <p>Consultas, exames, vacinas e remédios. Os próximos ficam no topo, e o custo vira despesa sem lançar duas vezes.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Feature: finances -->
+    <section class="feature" aria-labelledby="f1">
+      <div class="wrap feature-grid">
+        <div class="feature-copy" data-reveal>
+          <p class="eyebrow">Finanças</p>
+          <h2 id="f1">Cada conta paga uma vez, sem planilha.</h2>
+          <p>As contas mensais têm início e fim. Todo mês o Ninho mostra o que vence, você toca em pagar, e o valor pago fica guardado. Errou? Dá para desfazer pelo aviso na hora.</p>
+          <ul class="ticks">
+            <li>Saldo previsto e realizado do mês</li>
+            <li>Gráfico de despesas por categoria</li>
+            <li>Dívidas com saldo e parcela</li>
+            <li>Vencimento no dia 31 cai no último dia dos meses curtos</li>
+          </ul>
+        </div>
+        <div class="feature-visual" data-reveal>
+          <div class="blob" style="--b: var(--mint-tint)" aria-hidden="true"></div>
+          <figure class="phone tilt-l">
+            <img src="/assets/screens/phone-financas.webp" width="390" height="844" loading="lazy" alt="Finanças no celular: filtros, contas do mês com o botão Pagar e o saldo previsto">
+          </figure>
+          <figure class="phone phone-back tilt-r">
+            <img src="/assets/screens/phone-categorias.webp" width="390" height="844" loading="lazy" alt="Gráfico de despesas por categoria no celular">
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- Feature: layette -->
+    <section class="feature feature-flip" aria-labelledby="f2">
+      <div class="wrap feature-grid">
+        <div class="feature-copy" data-reveal>
+          <p class="eyebrow">Enxoval e metas</p>
+          <h2 id="f2">O enxoval com orçamento, não com susto.</h2>
+          <p>Cada item tem prioridade, preço alvo e quanto já foi guardado. Quando alguém compra, o Ninho registra a aquisição e a despesa na mesma operação, então a lista e o orçamento nunca discordam.</p>
+          <ul class="ticks">
+            <li>Essencial, conforto ou opcional</li>
+            <li>Quantidade comprada e quantidade que ainda falta</li>
+            <li>Presentes marcados sem virar gasto</li>
+          </ul>
+        </div>
+        <div class="feature-visual" data-reveal>
+          <div class="blob" style="--b: var(--sunny-tint)" aria-hidden="true"></div>
+          <figure class="phone tilt-r">
+            <img src="/assets/screens/phone-enxoval.webp" width="390" height="844" loading="lazy" alt="Enxoval e metas no celular: berço, roupas e carrinho com barras de progresso">
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- Feature: health -->
+    <section class="feature" aria-labelledby="f3">
+      <div class="wrap feature-grid">
+        <div class="feature-copy" data-reveal>
+          <p class="eyebrow">Saúde e bebê</p>
+          <h2 id="f3">A próxima consulta nunca fica perdida no grupo da família.</h2>
+          <p>Consultas, exames, vacinas e remédios ficam separados entre próximos e realizados. Peso e comprimento viram um gráfico, e o que foi pago na clínica já aparece nas finanças.</p>
+          <ul class="ticks">
+            <li>Um ou mais bebês, antes e depois do nascimento</li>
+            <li>Compromissos com profissional, clínica e observações</li>
+            <li>Marcar como realizado, ou reabrir</li>
+          </ul>
+        </div>
+        <div class="feature-visual" data-reveal>
+          <div class="blob" style="--b: var(--indigo-tint)" aria-hidden="true"></div>
+          <figure class="phone tilt-l">
+            <img src="/assets/screens/phone-saude.webp" width="390" height="844" loading="lazy" alt="Saúde no celular: consulta de pré-natal pendente">
+          </figure>
+          <figure class="phone phone-back tilt-r">
+            <img src="/assets/screens/phone-bebe.webp" width="390" height="844" loading="lazy" alt="Bebê no celular: data prevista e medidas de crescimento">
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- Family -->
+    <section class="family" id="familia" aria-labelledby="familia-titulo">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <p class="eyebrow">Família</p>
+          <h2 id="familia-titulo">Cada um com a sua conta. Todos com o mesmo ninho.</h2>
+          <p class="sub">Ninguém precisa dividir senha. Cada pessoa entra com o próprio e-mail e vê as mesmas informações, na hora.</p>
+        </div>
+        <ol class="steps">
+          <li data-reveal>
+            <span class="step-n">1</span>
+            <h3>Crie a família</h3>
+            <p>Cadastre-se com e-mail e senha. A família nasce com você como administrador.</p>
+          </li>
+          <li data-reveal>
+            <span class="step-n">2</span>
+            <h3>Envie um convite</h3>
+            <p>O convite vale para uma pessoa só e expira em 72 horas, então um link esquecido não abre a porta.</p>
+          </li>
+          <li data-reveal>
+            <span class="step-n">3</span>
+            <h3>Cuidem juntos</h3>
+            <p>Até quatro pessoas por família, ou oito com o Ninho Plus. Quem criou pode remover alguém, e qualquer um pode sair quando quiser.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Platforms -->
+    <section class="platforms" aria-labelledby="plataformas-titulo">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <p class="eyebrow">Celular e computador</p>
+          <h2 id="plataformas-titulo">No celular para o dia a dia. No computador para planejar.</h2>
+          <p class="sub">O mesmo app no Android e no navegador. No celular, cinco abas e o polegar resolve. No computador, uma barra lateral e espaço para ver o mês inteiro.</p>
+        </div>
+        <div class="platform-stage" data-reveal>
+          <figure class="browser browser-wide">
+            <div class="browser-bar" aria-hidden="true"><i></i><i></i><i></i><span>ninho · finanças</span></div>
+            <img src="/assets/screens/desktop-financas.webp" width="1440" height="900" loading="lazy" alt="Finanças no computador, com a barra lateral e a lista de contas do mês">
+          </figure>
+          <figure class="phone phone-float">
+            <img src="/assets/screens/phone-escuro.webp" width="390" height="844" loading="lazy" alt="Visão geral no celular, no tema escuro">
+          </figure>
+        </div>
+        <ul class="platform-list">
+          <li data-reveal>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>
+            <div><h3>Android</h3><p>App nativo, com a abertura da marca e o botão voltar que leva à aba anterior. Em breve na Google Play.</p></div>
+          </li>
+          <li data-reveal>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4" width="19" height="13" rx="2.5"/><path d="M8 20.5h8M12 17v3.5"/></svg>
+            <div><h3>Navegador</h3><p>Funciona em qualquer computador ou celular, sem instalar nada e sem anúncios.</p></div>
+          </li>
+          <li data-reveal>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.6A8.2 8.2 0 0 1 9.4 4a8.2 8.2 0 1 0 10.6 10.6Z"/></svg>
+            <div><h3>Claro, escuro ou automático</h3><p>Um "pastel noturno" para as mamadas da madrugada. O tema escolhido vale para o app e para este site.</p></div>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Privacy -->
+    <section class="privacy" id="privacidade" aria-labelledby="privacidade-titulo">
+      <div class="wrap privacy-grid">
+        <div class="privacy-copy" data-reveal>
+          <p class="eyebrow">Privacidade e segurança</p>
+          <h2 id="privacidade-titulo">Dinheiro e saúde da família são assunto da família.</h2>
+          <p>O isolamento não depende só do app: o próprio banco de dados confere, em cada leitura e escrita, se a pessoa é da família daquele registro.</p>
+          <a class="text-link" href="/privacidade">Ler a política de privacidade</a>
+        </div>
+        <ul class="privacy-list">
+          <li data-reveal>
+            <h3>Isolado por família</h3>
+            <p>Row Level Security no Postgres. Mesmo com a chave pública, ninguém lê o que é de outra família.</p>
+          </li>
+          <li data-reveal>
+            <h3>Logs sem dados pessoais</h3>
+            <p>A API não registra tokens, nomes, valores nem informações médicas.</p>
+          </li>
+          <li data-reveal>
+            <h3>Sua conta, sua decisão</h3>
+            <p>Exclua a conta pelo próprio app, em Família › Sua conta. Nada de formulário escondido.</p>
+          </li>
+          <li data-reveal>
+            <h3>Anúncio com limite</h3>
+            <p>Na web, nenhum. No Android, só um ao abrir o app, nunca no meio do uso, e nenhum com o Ninho Plus.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="faq" id="duvidas" aria-labelledby="duvidas-titulo">
+      <div class="wrap faq-wrap">
+        <div class="section-head" data-reveal>
+          <p class="eyebrow">Dúvidas</p>
+          <h2 id="duvidas-titulo">Perguntas frequentes</h2>
+        </div>
+        <div class="faq-list">
+          <details data-reveal>
+            <summary>O Ninho é pago?</summary>
+            <p>O essencial é gratuito. No Android, um anúncio ao abrir o app ajuda a manter o Ninho de pé; na web não há anúncios. O Ninho Plus custa R$ 19,90, pago uma vez só no app Android, sem mensalidade. Ele tira o anúncio, libera a lista de presentes com Pix, aceita até oito pessoas na família e dez opções por item do enxoval, e exporta tudo em planilha. Vale para a conta toda, inclusive na web.</p>
+          </details>
+          <details data-reveal>
+            <summary>Preciso instalar alguma coisa?</summary>
+            <p>Não. O Ninho abre no navegador do computador ou do celular. O app de Android chega em breve à Google Play, com a mesma conta.</p>
+          </details>
+          <details data-reveal>
+            <summary>Ainda estamos na gestação. Serve para nós?</summary>
+            <p>Serve. Cadastre o bebê pela data prevista e use o enxoval, as consultas de pré-natal e o orçamento desde já. Depois do nascimento, é só informar a data.</p>
+          </details>
+          <details data-reveal>
+            <summary>Quem consegue ver os nossos dados?</summary>
+            <p>Só as pessoas da sua família, até quatro (ou oito com o Plus), cada uma com a própria conta. Quem sai da família perde o acesso na hora.</p>
+          </details>
+          <details data-reveal>
+            <summary>Posso testar antes de criar conta?</summary>
+            <p>Pode. A demonstração abre com uma família de exemplo, dados fictícios e nada salvo. <a href="/app/?demo">Abrir a demonstração</a>.</p>
+          </details>
+          <details data-reveal>
+            <summary>Como excluo minha conta?</summary>
+            <p>No app, em Família › Sua conta › Excluir minha conta. O passo a passo, inclusive por e-mail, está em <a href="/excluir-conta">excluir conta</a>.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="final" aria-labelledby="final-titulo">
+      <div class="wrap final-box" data-reveal>
+        <svg class="final-mark" viewBox="0 0 256 256" aria-hidden="true"><use href="#ninho-mark"/></svg>
+        <h2 id="final-titulo">Mais clareza nas contas. Mais espaço para viver essa&nbsp;fase.</h2>
+        <div class="cta-row">
+          <a class="btn btn-dark" href="/app/?demo">Explorar a demonstração</a>
+          <a class="btn btn-onbrand" href="/app/">Criar conta grátis</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot-row">
+      <a class="brand" href="/" aria-label="Ninho, início">
+        <svg class="mark" viewBox="0 0 256 256" aria-hidden="true"><use href="#ninho-mark"/></svg>
+        <svg class="word" viewBox="0 0 370 132" aria-hidden="true"><use href="#ninho-word"/></svg>
+      </a>
+      <nav aria-label="Rodapé">
+        <a href="/app/">Abrir o Ninho</a>
+        <a href="/privacidade">Privacidade</a>
+        <a href="/excluir-conta">Excluir conta</a>
+        <a href="https://github.com/leonardobarrosx/ninho" rel="noopener">Código no GitHub</a>
+      </nav>
+      <p class="credit">Feito por <a href="https://github.com/leonardobarrosx" rel="noopener">Leonardo Barros</a>. Flutter, Go e Supabase.</p>
+    </div>
+  </footer>
+
+  <!-- The Abraço mark and the lettering, from branding/. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="ninho-mark" viewBox="0 0 256 256">
+        <circle cx="128" cy="128" r="128" fill="#FF8A5C"/>
+        <g transform="translate(26 26) scale(.8)" fill="#FFF6EA">
+          <path d="M128 27C101 27 79 71 79 105C79 134 99 149 128 149C157 149 177 134 177 105C177 71 155 27 128 27Z"/>
+          <path d="M68 76C34 89 17 113 17 145C17 192 58 222 117 224C138 225 155 223 174 218C171 190 151 177 116 166C83 156 59 144 48 123C45 117 50 113 54 119C60 128 65 133 73 137C64 120 61 98 68 76Z"/>
+          <path d="M187 76C220 90 239 113 239 145C239 174 219 201 184 215C181 190 167 174 146 163C171 155 189 135 190 111C191 98 189 87 187 76Z"/>
+        </g>
+      </symbol>
+      <symbol id="ninho-word" viewBox="0 0 370 132">
+        <g transform="translate(8 20)">
+          <g fill="none" stroke="currentColor" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 90V49C16 13 65 13 65 49V90"/>
+            <path d="M98 90V34"/>
+            <path d="M132 90V49C132 13 181 13 181 49V90"/>
+            <path d="M215 90V3M215 49C215 13 264 13 264 49V90"/>
+            <ellipse cx="315" cy="60" rx="26" ry="31"/>
+          </g>
+          <circle cx="98" cy="5" r="11" fill="currentColor"/>
+        </g>
+      </symbol>
+    </defs>
+  </svg>
+  <script src="/main.js" defer></script>
+</body>
+</html>

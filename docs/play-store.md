@@ -73,7 +73,8 @@ Como o app usa os IDs:
 Como o anúncio aparece (`app/lib/ads.dart`):
 
 - só no Android e só no início a frio; a versão web não tem anúncios;
-- no máximo uma vez a cada 4 horas, e a primeira só 4 horas depois da primeira abertura do app;
+- em toda abertura a frio, menos a primeira depois da instalação (`adInterval` é zero);
+- nenhum quando a família tem o Plus: o app guarda isso no aparelho e, na abertura seguinte, nem carrega o SDK;
 - a abertura espera no máximo 4 segundos, atrás de uma capa com a logo, pela consulta de consentimento e pelo anúncio. Se ele falhar ou atrasar, o app abre e o anúncio atrasado é descartado;
 - nunca durante a recuperação de senha, nem com o app em segundo plano;
 - o consentimento vem antes de qualquer anúncio. Quando a mensagem do Google aparece, nenhum anúncio é mostrado naquela abertura. Anúncios personalizados só depois de uma resposta na mensagem do Google; onde não há mensagem, como no Brasil, e sem uma resposta atualizada, só anúncios não personalizados são pedidos;
@@ -86,7 +87,7 @@ Para ver a mensagem de consentimento fora da Europa, cadastre o aparelho de test
 
 ### Política de privacidade
 
-`https://SEU-SITE/privacidade`. A página vem de `app/web/privacidade.html` e cobre dados de saúde de crianças (LGPD, arts. 11 e 14), anúncios, compartilhamento, transferência internacional, retenção e direitos. O build da Vercel preenche o responsável e o e-mail com `PRIVACY_CONTROLLER` e `PRIVACY_EMAIL`. **Peça uma revisão jurídica do texto antes de publicar.** Ele descreve o que o código faz hoje, mas não substitui um advogado.
+`https://SEU-SITE/privacidade`. A página vem de `site/privacidade.html` e cobre dados de saúde de crianças (LGPD, arts. 11 e 14), anúncios, compartilhamento, transferência internacional, retenção e direitos. O build da Vercel preenche o responsável e o e-mail com `PRIVACY_CONTROLLER` e `PRIVACY_EMAIL`. **Peça uma revisão jurídica do texto antes de publicar.** Ele descreve o que o código faz hoje, mas não substitui um advogado.
 
 ### Acesso ao app
 

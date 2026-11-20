@@ -4,7 +4,10 @@ import 'package:intl/intl.dart';
 import 'ads.dart';
 import 'data.dart';
 import 'domain.dart';
+import 'export.dart';
 import 'forms.dart';
+import 'gifts.dart';
+import 'layette.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -35,6 +38,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String filter = 'all';
   String search = '';
   String? babyId;
+  // The layette category shown, or every one when null.
+  String? category;
   Store get s => widget.store;
   Palette get p => Palette.of(context);
   static const labels = [
@@ -74,8 +79,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Runs a change and says how it went: [done] on success, with an [undo]
   /// button when the change can be reverted.
+  ///
+  /// An action that returns text says that instead of [done].
   Future<void> perform(
-    Future<void> Function() action, {
+    Future<Object?> Function() action, {
     String done = 'Atualizado.',
     SnackBarAction? undo,
   }) async {
@@ -83,11 +90,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (saving || !mounted) return;
     setState(() => saving = true);
     try {
-      await action();
+      final result = await action();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(s.error ?? done),
+            content: Text(s.error ?? (result is String ? result : done)),
             action: s.error == null ? undo : null,
           ),
         );
@@ -200,6 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
     page = i;
     search = '';
     filter = 'all';
+    category = null;
   });
 
   /// The back button: from Família to the tab it was opened from, from any
@@ -219,6 +227,15 @@ class _HomeScreenState extends State<HomeScreen> {
           go(familyPage);
         case 'refresh':
           s.refresh();
+        case 'export':
+          perform(
+            () => shareSheets([
+              financeSheet(s.rows('entries')),
+              layetteSheet(s.rows('goals'), s.rows('goal_options')),
+              healthSheet(s.rows('health_events'), s.rows('babies')),
+            ]),
+            done: 'Planilhas de finanças, enxoval e saúde prontas.',
+          );
         case 'logout':
           perform(widget.onLogout);
       }
@@ -231,6 +248,14 @@ class _HomeScreenState extends State<HomeScreen> {
         'Atualizar dados',
         enabled: !s.loading && !saving,
       ),
+      // A Plus benefit: finances, layette and health as spreadsheets.
+      if (s.plus)
+        menuItem(
+          'export',
+          Icons.table_view_outlined,
+          'Exportar planilhas',
+          enabled: !s.loading && !saving,
+        ),
       const PopupMenuDivider(),
       for (final theme in NinhoTheme.values)
         CheckedPopupMenuItem<Object>(
@@ -1077,59 +1102,319 @@ class _HomeScreenState extends State<HomeScreen> {
     row: row,
     defaults: const {'due_day': 10, 'installment_cents': 0},
   );
-  void editGoal([Json? row]) => edit(
-    'goals',
-    row == null ? 'Nova meta' : 'Editar meta',
-    const [
-      FieldSpec('title', 'O que vocês querem comprar?'),
-      FieldSpec('priority', 'Prioridade', options: priorityLabels),
-      FieldSpec(
-        'target_cents',
-        'Orçamento para toda a quantidade (R\$)',
-        type: 'money',
+
+  /// The next position at the end of the layette list.
+  int get nextOrder =>
+      (s.rows('goals').fold<int>(-1, (a, g) {
+                final o = number(g, 'sort_order');
+                return o > a ? o : a;
+              }) +
+              1)
+          .clamp(0, 100000);
+
+  void editGoal([Json? row]) {
+    // A main option with a price sets the budget, so it is not typed.
+    final priced =
+        row != null &&
+        s
+            .rows('goal_options')
+            .any(
+              (o) =>
+                  o['id'] == row['chosen_option_id'] &&
+                  o['price_cents'] != null,
+            );
+    edit(
+      'goals',
+      row == null ? 'Nova meta' : 'Editar item',
+      [
+        const FieldSpec('title', 'O que vocês querem comprar?'),
+        const FieldSpec(
+          'category',
+          'Categoria (ex.: Quarto, Roupas, Banho)',
+          optional: true,
+          max: 40,
+        ),
+        const FieldSpec('priority', 'Prioridade', options: priorityLabels),
+        if (!priced)
+          const FieldSpec(
+            'target_cents',
+            'Orçamento para toda a quantidade (R\$)',
+            type: 'money',
+          ),
+        const FieldSpec(
+          'saved_cents',
+          'Dinheiro reservado hoje (R\$)',
+          type: 'money',
+        ),
+        const FieldSpec(
+          'quantity',
+          'Quantidade total',
+          type: 'int',
+          min: 1,
+          max: 10000,
+        ),
+        const FieldSpec(
+          'acquired',
+          'Quantidade que já tem',
+          type: 'int',
+          max: 10000,
+        ),
+        const FieldSpec(
+          'target_date',
+          'Data desejada',
+          type: 'date',
+          optional: true,
+        ),
+        const FieldSpec('notes', 'Observações', type: 'notes', optional: true),
+      ],
+      row: row,
+      defaults: {
+        'priority': 'essential',
+        'target_cents': 0,
+        'saved_cents': 0,
+        'quantity': 1,
+        'acquired': 0,
+        'sort_order': nextOrder,
+      },
+      help: priced
+          ? 'O orçamento segue o preço da opção principal vezes a quantidade. Presentes entram na quantidade já adquirida.'
+          : 'Defina o orçamento total da meta. Presentes entram na quantidade já adquirida. A reserva é apenas uma separação do seu dinheiro, não uma nova despesa.',
+    );
+  }
+
+  /// A new layette item: a title and a store link. The photo, description
+  /// and price come from the link.
+  Future<void> newItem() async {
+    final result = await editForm(
+      context,
+      'Novo item do enxoval',
+      const [
+        FieldSpec('title', 'O que vocês querem comprar?'),
+        FieldSpec(
+          'url',
+          'Link do produto (opcional)',
+          type: 'url',
+          optional: true,
+        ),
+        FieldSpec(
+          'category',
+          'Categoria (ex.: Quarto, Roupas, Banho)',
+          optional: true,
+          max: 40,
+        ),
+        FieldSpec('priority', 'Prioridade', options: priorityLabels),
+        FieldSpec('quantity', 'Quantidade', type: 'int', min: 1, max: 10000),
+      ],
+      initial: const {'priority': 'essential', 'quantity': 1},
+      help:
+          'Cole o link da loja: o Ninho busca foto, descrição e preço, e confere o preço todo dia. Depois dá para comparar outras opções.',
+    );
+    if (result == null) return;
+    final url = result.remove('url') as String;
+    String? created;
+    await perform(() async {
+      final goal = await s.save('goals', {
+        ...result,
+        'acquired': 0,
+        'target_cents': 0,
+        'saved_cents': 0,
+        'sort_order': nextOrder,
+      }, reload: false);
+      created = goal?['id'] as String?;
+      var message = 'Item adicionado.';
+      if (goal != null && url.isNotEmpty) {
+        message = await addOptionFromLink(s, goal, url);
+      }
+      await s.refresh();
+      return message;
+    });
+    if (created != null && url.isNotEmpty) openItem(created!);
+  }
+
+  void openGifts() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => GiftListPage(store: s)));
+
+  /// The way into the gift list, with what waits for the family there.
+  Widget giftBanner() {
+    final list = s.rows('gift_lists').firstOrNull;
+    final gifts = s.rows('gift_contributions');
+    final pending = gifts.where((c) => c['status'] == 'pending').length;
+    final confirmed = gifts
+        .where((c) => c['status'] == 'confirmed')
+        .fold(0, (t, c) => t + number(c, 'amount_cents'));
+    final note = list == null
+        ? 'Amigos e família escolhem um item, ou parte dele, e pagam por Pix direto para vocês.'
+        : pending > 0
+        ? '${pending == 1 ? '1 Pix' : '$pending Pix'} para conferir · ${money(confirmed)} confirmados'
+        : list['published'] == true
+        ? 'Publicada · ${money(confirmed)} confirmados'
+        : 'Fora do ar. Termine de montar e publique.';
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: openGifts,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: pending > 0 ? p.sunnyTint : p.mintTint,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.redeem_rounded,
+                  color: pending > 0 ? p.sunnyIcon : p.mintIcon,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Lista de presentes com\u00a0Pix',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: p.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(note, style: TextStyle(color: p.muted, fontSize: 13)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: p.muted),
+            ],
+          ),
+        ),
       ),
-      FieldSpec('saved_cents', 'Dinheiro reservado hoje (R\$)', type: 'money'),
-      FieldSpec(
-        'quantity',
-        'Quantidade total',
-        type: 'int',
-        min: 1,
-        max: 10000,
-      ),
-      FieldSpec('acquired', 'Quantidade que já tem', type: 'int', max: 10000),
-      FieldSpec('target_date', 'Data desejada', type: 'date', optional: true),
-      FieldSpec('notes', 'Observações', type: 'notes', optional: true),
-    ],
-    row: row,
-    defaults: const {
-      'priority': 'essential',
-      'target_cents': 0,
-      'saved_cents': 0,
-      'quantity': 1,
-      'acquired': 0,
-    },
-    help:
-        'Defina o orçamento total da meta. Presentes entram na quantidade já adquirida. A reserva é apenas uma separação do seu dinheiro, não uma nova despesa.',
+    );
+  }
+
+  void openItem(String id) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => LayetteItemPage(store: s, goalId: id, onEdit: editGoal),
+    ),
   );
+
+  /// Puts the layette items in the order the family wants, by dragging.
+  Future<void> reorder() async {
+    final list = inOrder(s.rows('goals'));
+    final ordered = await showDialog<List<Json>>(
+      context: context,
+      builder: (ctx) => ReorderDialog(list),
+    );
+    if (ordered == null) return;
+    await perform(() async {
+      for (final (i, g) in ordered.indexed) {
+        if (number(g, 'sort_order') != i) {
+          await s.save(
+            'goals',
+            {'sort_order': i},
+            id: g['id'] as String,
+            reload: false,
+          );
+        }
+      }
+      await s.refresh();
+      return null;
+    }, done: 'Ordem salva.');
+  }
+
   Widget goals() {
-    final list = s
-        .rows('goals')
+    final all = inOrder(s.rows('goals'));
+    final options = s.rows('goal_options');
+    final categories = {
+      for (final g in all)
+        if ((g['category'] as String? ?? '').isNotEmpty)
+          g['category'] as String,
+    }.toList()..sort();
+    final list = all
         .where(
           (g) =>
               (filter == 'all' || g['priority'] == filter) &&
+              (category == null || g['category'] == category) &&
               (g['title'] as String).toLowerCase().contains(
                 search.toLowerCase(),
               ),
         )
         .toList();
+    final now = DateTime.now();
+    final alerts = [
+      for (final g in all)
+        for (final o in optionsOf(g, options))
+          if (priceAlert(o, now) case final alert?) (g, o, alert),
+    ];
+    final totals = layetteTotals(all, options);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Heading(
           'Planos que ganham forma.',
-          'O essencial primeiro. Conforto e praticidade quando couberem.',
-          action: add('Nova meta', () => editGoal()),
+          'O essencial primeiro. Cole o link da loja e o Ninho acompanha o preço.',
+          action: add('Novo item', newItem),
         ),
+        if (all.isNotEmpty) ...[
+          LayetteTotalsPanel(totals, items: all.length),
+          const SizedBox(height: 20),
+          giftBanner(),
+          const SizedBox(height: 20),
+        ],
+        if (alerts.isNotEmpty) ...[
+          Panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SectionTitle(
+                  alerts.length == 1
+                      ? 'Um preço mudou nesta\u00a0semana'
+                      : '${alerts.length} preços mudaram nesta\u00a0semana',
+                ),
+                for (final (g, o, alert) in alerts)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => openItem(g['id'] as String),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          ProductImage(
+                            o['image_url'] as String? ?? '',
+                            size: 44,
+                            category: g['category'] as String? ?? '',
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  o['title'] as String,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                PriceAlertTag(alert),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.chevron_right, color: p.muted),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
         Wrap(
           spacing: 10,
           runSpacing: 10,
@@ -1140,6 +1425,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 selected: filter == e.key,
                 onSelected: () => setState(() => filter = e.key),
               ),
+            if (all.length > 1)
+              TextButton.icon(
+                onPressed: saving ? null : reorder,
+                icon: const Icon(Icons.swap_vert_rounded),
+                label: const Text('Organizar ordem'),
+              ),
             TextButton.icon(
               onPressed: saving ? null : seedEssentials,
               icon: const Icon(Icons.playlist_add),
@@ -1147,18 +1438,38 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+        if (categories.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              OptionChip(
+                'Todas as categorias',
+                selected: category == null,
+                onSelected: () => setState(() => category = null),
+              ),
+              for (final c in categories)
+                OptionChip(
+                  c,
+                  selected: category == c,
+                  onSelected: () => setState(() => category = c),
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: 20),
         if (list.isEmpty)
           EmptyState(
-            'Qual é o primeiro plano?',
-            'Adicione um item do enxoval ou uma meta da família.',
-            onAdd: () => editGoal(),
+            'Qual é o primeiro\u00a0item?',
+            'Dê um nome e cole o link da loja. Foto e preço vêm sozinhos.',
+            onAdd: newItem,
           )
         else
           goalGrid(list),
         const SizedBox(height: 16),
         Text(
-          '“Falta reservar” usa o orçamento proporcional à quantidade que falta, descontando a reserva atual. Atualize preços conforme suas cotações.',
+          '“Falta reservar” usa o orçamento proporcional à quantidade que falta, descontando a reserva atual. Os preços dos links são conferidos uma vez por dia.',
           style: TextStyle(color: p.muted, fontSize: 12, height: 1.6),
         ),
       ],
@@ -1195,6 +1506,17 @@ class _HomeScreenState extends State<HomeScreen> {
         : target == 0
         ? 0.0
         : (1 - remainingGoal(g) / target).clamp(0.0, 1.0);
+    final options = optionsOf(g, s.rows('goal_options'));
+    final chosen = options
+        .where((o) => o['id'] == g['chosen_option_id'])
+        .firstOrNull;
+    final prices = [
+      for (final o in options)
+        if (o['price_cents'] != null) number(o, 'price_cents'),
+    ]..sort();
+    final now = DateTime.now();
+    final alert = options.map((o) => priceAlert(o, now)).nonNulls.firstOrNull;
+    final category = g['category'] as String? ?? '';
     return Panel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1203,31 +1525,71 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Tag(
                 priorityLabels[g['priority']] ?? 'Meta',
-                color: switch (g['priority']) {
-                  'comfort' => p.skyTint,
-                  'optional' => p.indigoTint,
-                  _ => p.brandTint,
-                },
+                color: priorityColor(p, g['priority']),
               ),
+              if (category.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Flexible(child: Tag(category, color: p.surfaceAlt)),
+              ],
               const Spacer(),
               actions('goals', g, () => editGoal(g)),
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            g['title'] as String,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: p.ink,
+          InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => openItem(g['id'] as String),
+            child: Row(
+              children: [
+                if (chosen != null) ...[
+                  ProductImage(
+                    chosen['image_url'] as String? ?? '',
+                    size: 64,
+                    category: category,
+                  ),
+                  const SizedBox(width: 14),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        g['title'] as String,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: p.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '$acquired de $quantity adquiridos · ${dateText(g['target_date'] as String?)}',
+                        style: TextStyle(fontSize: 12, color: p.muted),
+                      ),
+                      if (options.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          options.length == 1 || prices.length < 2
+                              ? '${options.length} ${options.length == 1 ? 'opção' : 'opções'}'
+                              : '${options.length} opções · de ${money(prices.first)} a ${money(prices.last)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: p.muted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            '$acquired de $quantity adquiridos · ${dateText(g['target_date'] as String?)}',
-            style: TextStyle(fontSize: 12, color: p.muted),
-          ),
-          const SizedBox(height: 22),
+          if (alert != null) ...[
+            const SizedBox(height: 12),
+            PriceAlertTag(alert),
+          ],
+          const SizedBox(height: 18),
           GrowingBar(
             progress,
             semanticsLabel: 'Progresso da meta',
@@ -1248,12 +1610,27 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(color: p.muted, fontSize: 12),
           ),
           const SizedBox(height: 18),
-          if (!done)
-            OutlinedButton.icon(
-              onPressed: saving ? null : () => purchase(g),
-              icon: const Icon(Icons.check, size: 17),
-              label: const Text('Registrar aquisição'),
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (!done)
+                OutlinedButton.icon(
+                  onPressed: saving ? null : () => purchase(g),
+                  icon: const Icon(Icons.check, size: 17),
+                  label: const Text('Registrar aquisição'),
+                ),
+              TextButton.icon(
+                onPressed: () => openItem(g['id'] as String),
+                icon: const Icon(Icons.compare_arrows_rounded, size: 18),
+                label: Text(
+                  options.isEmpty ? 'Adicionar link' : 'Opções e preços',
+                  semanticsLabel:
+                      '${options.isEmpty ? 'Adicionar link' : 'Opções e preços'} de ${g['title']}',
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1313,6 +1690,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (ok != true) return;
     await perform(() async {
+      var order = nextOrder;
       for (final entry in {
         'Berço e colchão adequado': 1,
         'Lençol com elástico': 3,
@@ -1336,9 +1714,11 @@ class _HomeScreenState extends State<HomeScreen> {
           'target_cents': 0,
           'saved_cents': 0,
           'notes': 'Quantidade sugerida. Ajuste à rotina da família.',
+          'sort_order': (order++).clamp(0, 100000),
         }, reload: false);
       }
       await s.refresh();
+      return null;
     }, done: 'Checklist adicionado.');
   }
 
@@ -1977,7 +2357,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             const SectionTitle('Sobre esta versão'),
             Text(
-              'Ninho 0.1 · Planejamento familiar\n\nRecursos de cobrança de assinatura não estão ativos nesta versão. O compartilhamento funciona por família.\n\nEm Saúde, registre informações recebidas dos profissionais. O aplicativo não substitui o acompanhamento clínico.${widget.ads.enabled ? '\n\nO app é gratuito e mostra um anúncio ao abrir, no máximo a cada 4 horas. Dados de finanças, família e saúde nunca são usados em anúncios.' : ''}',
+              'Ninho 0.1 · Planejamento familiar\n\nRecursos de cobrança de assinatura não estão ativos nesta versão. O compartilhamento funciona por família.\n\nEm Saúde, registre informações recebidas dos profissionais. O aplicativo não substitui o acompanhamento clínico.${widget.ads.enabled ? '\n\nO app é gratuito e mostra um anúncio ao abrir, que o Ninho Plus tira. Dados de finanças, família e saúde nunca são usados em anúncios.' : ''}',
               style: TextStyle(color: p.muted, height: 1.6),
             ),
             const SizedBox(height: 8),
@@ -2075,6 +2455,7 @@ class _HomeScreenState extends State<HomeScreen> {
       code =
           await s.rpc('create_invite', {'p_household_id': s.householdId})
               as String;
+      return null;
     }, done: 'Convite gerado.');
     if (code == null || !mounted) return;
     await showDialog<void>(

@@ -13,8 +13,17 @@ services:
         sync: false
       - key: SUPABASE_PUBLISHABLE_KEY
         sync: false
-      # Secret key, used only to delete accounts with the Auth admin API. Never in the app or web build.
+      # Secret key: account deletion, the daily price check, public gift lists and Plus payments. Never in the app or web build.
       - key: SUPABASE_SECRET_KEY
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false
+      # Guards POST /internal/refresh-prices, called once a day by pg_cron (docs/deploy.md).
+      - key: CRON_SECRET
+        sync: false
+      # Plus purchases (docs/deploy.md): JSON key of the service account that reads Google Play purchases, and the
+      # app's package name.
+      - key: GOOGLE_PLAY_SERVICE_ACCOUNT
+        sync: false
+      - key: GOOGLE_PLAY_PACKAGE
+        value: br.com.ninho.app

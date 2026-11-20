@@ -13,7 +13,7 @@
   <img src="docs/media/demonstracao.gif" width="300" alt="Demonstração: a abertura com a logo, a visão geral, o pagamento de uma conta com a opção de desfazer, um compromisso de saúde marcado como realizado e a troca para o tema escuro">
 </p>
 
-O Ninho é um app Flutter para Android e web. Os dados ficam no Supabase (Auth e Postgres) e passam por uma API em Go no Render. A versão web é publicada na Vercel, com a política de privacidade e a página de exclusão de conta. No Android, um anúncio na abertura mantém o app gratuito.
+O Ninho é um app Flutter para Android e web. Os dados ficam no Supabase (Auth e Postgres) e passam por uma API em Go no Render. O site na Vercel tem a página de apresentação na raiz, a versão web do app em `/app/`, a política de privacidade e a página de exclusão de conta. No Android, um anúncio na abertura mantém o app gratuito.
 
 ## Telas
 
@@ -50,7 +50,7 @@ As imagens e o GIF saíram do build web da demonstração, com o Playwright. Par
 - **Saúde:** consultas, exames, vacinas, medicamentos e outros registros. Os próximos aparecem separados dos realizados, e o custo vira despesa sem duplicar.
 - **Família:** cada pessoa entra com a própria conta, por um convite de uso único válido por 72 horas. São até quatro pessoas por família. Quem criou a família pode remover pessoas, e as outras podem sair.
 - **Conta e privacidade:** cadastro com confirmação de e-mail, login e troca de senha. A conta pode ser excluída no próprio app, em Família › Sua conta, e uma página do site explica como fazer. As famílias com outras pessoas passam para quem entrou primeiro, e as demais são apagadas com seus registros. O app tem uma página de licenças de código aberto.
-- **Anúncios (só no Android):** um anúncio do AdMob na abertura, no máximo a cada 4 horas, depois do consentimento do Google. A versão web não tem anúncios.
+- **Anúncios (só no Android):** um anúncio do AdMob a cada abertura do app, menos a primeira, depois do consentimento do Google. O Ninho Plus, comprado pela Google Play, tira o anúncio. A versão web não tem anúncios.
 
 ## Experiência
 
@@ -70,15 +70,14 @@ flutter pub get
 flutter run -d chrome
 ```
 
-Para ver o build de produção, como no site:
+Para ver o site como na Vercel, com a página de apresentação e o app em `/app/`:
 
 ```bash
-cd app
-flutter build web --release --no-web-resources-cdn
-python -m http.server 8080 --directory build/web
+NINHO_DEMO=true bash scripts/build_web.sh
+python -m http.server 8080 --directory dist
 ```
 
-Abra `http://localhost:8080` e toque em **Explorar demonstração**.
+Abra `http://localhost:8080` para a página de apresentação, ou `http://localhost:8080/app/?demo` para entrar direto na demonstração. O servidor do Python não reproduz as reescritas de `vercel.json`, então use as URLs com `.html` para as páginas de privacidade.
 
 ## Arquitetura
 
@@ -87,7 +86,7 @@ App Flutter (Android e web)
   ├─ login, cadastro e senha ──> Supabase Auth
   └─ dados da família ─────────> API Go (Render) ──> Supabase Postgres, isolado por família (RLS)
 
-Site (Vercel): build web do app, política de privacidade e exclusão de conta
+Site (Vercel): página de apresentação (/), build web do app (/app/), política de privacidade e exclusão de conta
 ```
 
 ```text
@@ -95,7 +94,8 @@ app/                  App Flutter para Android e web
 backend/              API Go, só com a biblioteca padrão
 supabase/migrations/  Schema, políticas de acesso e operações atômicas
 supabase/tests/       Testes de isolamento e regras do banco
-scripts/              Build web para a Vercel
+site/                 Página de apresentação, política de privacidade e exclusão de conta (HTML, CSS e JS, sem build)
+scripts/              Build do site para a Vercel (app em /app/ e site na raiz, em dist/)
 .github/workflows/    Testes e builds de demonstração
 docs/                 Publicação, Google Play, estado da validação e imagens do README
 branding/             Logo, vetores e ícone da Google Play
@@ -208,4 +208,5 @@ As capturas em `docs/media/` e o GIF `docs/media/demonstracao.gif` vêm do build
 - [`docs/deploy.md`](docs/deploy.md): publicação no Supabase, no Render e na Vercel.
 - [`docs/play-store.md`](docs/play-store.md): roteiro da Google Play e do AdMob.
 - [`branding/LEIA-ME.md`](branding/LEIA-ME.md): logo, cores e regras de uso.
-- [`app/web/privacidade.html`](app/web/privacidade.html) e [`app/web/excluir-conta.html`](app/web/excluir-conta.html): política de privacidade e exclusão de conta.
+- [`site/index.html`](site/index.html): página de apresentação. As capturas em `site/assets/screens/` vêm do build de demonstração (celular em 390 × 844 com escala 2, computador em 1440 × 900).
+- [`site/privacidade.html`](site/privacidade.html) e [`site/excluir-conta.html`](site/excluir-conta.html): política de privacidade e exclusão de conta.
