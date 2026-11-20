@@ -38,6 +38,11 @@ html() {
 }
 controller="$(html "${PRIVACY_CONTROLLER:-o responsável pelo Ninho (a definir)}")"
 email="$(html "${PRIVACY_EMAIL:-contato a definir}")"
+# The gift list pages (/lista/<slug>) call the API. The demo build shows the example list instead.
+if [[ -n "${API_URL:-}" ]]; then
+  printf 'window.NINHO_API_URL = %s;\n' "$(printf '%s' "$API_URL" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/.*/"&"/')" > config.js
+fi
+
 sed -i -e "s|__RESPONSAVEL__|$controller|g" -e "s|__EMAIL__|$email|g" privacidade.html excluir-conta.html
 
 # AdMob checks app-ads.txt on the developer website listed on Google Play.

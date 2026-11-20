@@ -21,8 +21,8 @@ import (
 
 type Config struct {
 	SupabaseURL, PublishableKey string
-	// SecretKey is used for one call only: deleting the signed-in user with the Auth admin API.
-	// Without it, account deletion answers 503 and everything else works.
+	// SecretKey deletes the signed-in user with the Auth admin API, runs the daily price check and serves the
+	// public gift lists through two database functions. Without it, those answer 503 and the rest works.
 	SecretKey string
 	Origins   []string
 	Client    *http.Client
@@ -80,17 +80,18 @@ var fields = map[string]string{
 	"babies":        "household_id,name,due_date,birth_date,notes",
 	"entries":       "household_id,title,kind,category,amount_cents,start_date,end_date,recurrence,notes",
 	"debts":         "household_id,title,creditor,balance_cents,installment_cents,due_day,notes",
-	"goals":         "household_id,title,priority,target_cents,saved_cents,quantity,acquired,target_date,notes,category,sort_order,chosen_option_id",
+	"goals":         "household_id,title,priority,target_cents,saved_cents,quantity,acquired,target_date,notes,category,sort_order,chosen_option_id,gift",
 	"goal_options":  "household_id,goal_id,title,url,image_url,description,store,price_cents,list_price_cents,notes",
 	"measurements":  "household_id,baby_id,measured_at,weight_grams,length_mm,notes",
 	"health_events": "household_id,baby_id,title,event_type,event_date,provider,notes,completed",
+	"gift_lists":    "household_id,slug,published,template,palette,title,message,show_prices,allow_partial,pix_key,pix_name,pix_city",
 }
 
 // userKey holds the ID of the user verified by protect in the request context.
 type userKey struct{}
 
-var readable = map[string]bool{"households": true, "household_members": true, "babies": true, "entries": true, "settlements": true, "debts": true, "goals": true, "goal_options": true, "goal_option_prices": true, "measurements": true, "health_events": true}
-var rpcFields = map[string]string{"create_household": "p_name", "create_invite": "p_household_id", "accept_invite": "p_token", "settle_entry": "p_entry_id,p_occurrence,p_paid", "buy_goal": "p_goal_id,p_quantity,p_cost_cents,p_date", "record_health_cost": "p_event_id,p_amount_cents,p_date", "list_members": "p_household_id", "remove_member": "p_household_id,p_user_id", "leave_household": "p_household_id"}
+var readable = map[string]bool{"households": true, "household_members": true, "babies": true, "entries": true, "settlements": true, "debts": true, "goals": true, "goal_options": true, "goal_option_prices": true, "gift_lists": true, "gift_contributions": true, "gift_contribution_items": true, "measurements": true, "health_events": true}
+var rpcFields = map[string]string{"create_household": "p_name", "create_invite": "p_household_id", "accept_invite": "p_token", "settle_entry": "p_entry_id,p_occurrence,p_paid", "buy_goal": "p_goal_id,p_quantity,p_cost_cents,p_date", "record_health_cost": "p_event_id,p_amount_cents,p_date", "list_members": "p_household_id", "remove_member": "p_household_id,p_user_id", "leave_household": "p_household_id", "household_has_plus": "p_household_id", "decide_gift": "p_id,p_status"}
 
 // Exception messages raised by the migrations' functions and triggers, shown to the user in Portuguese.
 var dbErrors = map[string]string{
@@ -108,6 +109,10 @@ var dbErrors = map[string]string{
 	"Not a member":                            "Essa pessoa não faz parte desta família",
 	"Close this schedule and create a new entry to preserve paid history": "Há pagamentos registrados. Encerre este lançamento e crie outro para mudar valor, tipo ou início",
 	"Too many options": "Cada item aceita até cinco opções",
+	"Plus required":    "A lista de presentes faz parte do Ninho Plus",
+	"Pix required":     "Preencha a chave Pix, o nome e a cidade de quem recebe",
+	"Gift unavailable": "Contribuição não encontrada",
+	"Invalid status":   "Situação inválida",
 }
 
 func New(c Config) http.Handler {
@@ -123,6 +128,7 @@ func New(c Config) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { send(w, 200, map[string]string{"status": "ok"}) })
 	mux.HandleFunc("/internal/refresh-prices", s.refreshPrices)
+	mux.HandleFunc("/v1/public/lists/", s.giftList)
 	mux.Handle("/v1/", s.protect(http.HandlerFunc(s.route)))
 	return s.middleware(mux)
 }
