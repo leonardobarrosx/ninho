@@ -33,6 +33,8 @@
       <li><strong>Conta:</strong> e-mail e senha. A senha fica com o serviço de autenticação apenas em forma de hash; ninguém do Ninho consegue lê-la. Para segurança, o serviço também registra a data do cadastro e do último acesso, o endereço IP e o navegador ou aparelho usados para entrar.</li>
       <li><strong>Família:</strong> o nome da família, quem participa dela (o e-mail de cada pessoa aparece para as demais) e os convites. Do código de convite guardamos só um resumo criptográfico, válido por 72 horas.</li>
       <li><strong>Finanças:</strong> receitas, salários, despesas, contas mensais, categorias, valores, datas, pagamentos registrados, dívidas (credor, saldo e parcela), metas e enxoval (orçamentos, reservas, quantidades e compras) e observações.</li>
+      <li><strong>Links de produtos do enxoval:</strong> os links que você cola, com o que a página da loja mostra (nome, descrição, foto, loja, preço e preço sem desconto) e o histórico de preços. A API do Ninho abre esses links ao salvar e uma vez por dia para conferir o preço; a loja vê esse acesso vindo do servidor do Ninho, não de você. As fotos vêm direto do site da loja, que recebe o IP de quem as vê.</li>
+      <li><strong>Lista de presentes (Ninho Plus):</strong> o título, o recado, o endereço da página e a chave Pix, o nome e a cidade de quem recebe, que ficam visíveis para quem tiver o link publicado, junto com os itens escolhidos, as fotos e o quanto falta de cada um. De quem presenteia, guardamos o nome, o recado, os valores e os itens escolhidos, que só a família vê. O Pix vai direto do banco de quem presenteia para a chave da família: o Ninho não recebe, não processa e não vê pagamentos.</li>
       <li><strong>Bebê e saúde:</strong> nome ou apelido do bebê, data prevista do parto, data de nascimento, peso, comprimento e registros de consultas, exames, vacinas, medicamentos e outros, com profissional ou local, anotações e custos. Dados de saúde são dados pessoais sensíveis (art. 5º, II) e, quando se referem a uma criança, têm também a proteção do art. 14 da LGPD.</li>
       <li><strong>No aparelho:</strong> o tema escolhido e, no Android, quando o próximo anúncio pode aparecer. O SDK de anúncios do Google guarda ali as suas escolhas de consentimento.</li>
       <li><strong>Anúncios (só no Android):</strong> descritos na seção Anúncios, abaixo.</li>
@@ -71,6 +73,7 @@
       <li><strong>Operadores que mantêm o serviço</strong> e tratam os dados em nosso nome: Supabase (banco de dados e autenticação), Render (API) e Vercel (site e versão web).</li>
       <li><strong>Google (AdMob)</strong>, como controlador independente dos dados de anúncios no Android.</li>
       <li><strong>Google (fontes da versão web)</strong>: quando um texto tem caracteres que a fonte do Ninho não cobre, como emojis, o navegador baixa de fonts.gstatic.com a fonte que falta. Nesse acesso, o Google recebe o endereço IP e dados técnicos do navegador, mas nenhum conteúdo do Ninho. O app Android não faz esse acesso.</li>
+      <li><strong>Quem tem o link da sua lista de presentes</strong>, se você a publicar: vê o que a página mostra, descrito acima. Você tira a página do ar quando quiser.</li>
       <li><strong>Autoridades</strong>, quando a lei ou uma ordem judicial exigir.</li>
     </ul>
     <p>Não vendemos dados pessoais.</p>

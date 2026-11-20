@@ -8,6 +8,35 @@ As tabelas usadas pelo aplicativo precisam estar expostas no Data API. A migraç
 
 A migração `202610170001_account_deletion.sql` cria um gatilho em `auth.users` que decide o destino das famílias de quem exclui a conta: as que têm outras pessoas passam para quem entrou primeiro, e as demais são apagadas com seus registros. Depois de aplicá-la, confira em Database › Triggers que `before_user_deleted` existe em `auth.users`. Sem ele, excluir quem criou uma família falha em vez de apagar dados compartilhados.
 
+### Enxoval e lista de presentes
+
+Aplique as migrações antes de publicar uma versão nova do app: o app lê as tabelas novas ao abrir e falha se elas ainda não existem.
+
+- `202611190001_layette_options.sql`: opções por item, preço principal e histórico. A conferência diária de preços é chamada pelo `pg_cron` com `pg_net`. No SQL Editor, guarde o segredo no Vault e agende:
+
+  ```sql
+  create extension if not exists pg_cron;
+  create extension if not exists pg_net;
+  select vault.create_secret('VALOR_DO_CRON_SECRET', 'cron_secret');
+  select cron.schedule('conferir-precos', '0 9 * * *', $$
+    select net.http_post(
+      url := 'https://SUA_API/internal/refresh-prices',
+      headers := jsonb_build_object('Authorization', 'Bearer ' ||
+        (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret'))
+    );
+  $$);
+  ```
+
+  O horário é em UTC (9h UTC = 6h em Brasília). A API responde 202 e confere os links em segundo plano.
+- `202611200001_gift_list.sql`: lista de presentes com Pix, liberada pelo Ninho Plus (R$ 10, pago uma vez por conta). Enquanto a compra não está no app, libere o Plus de uma conta pelo SQL Editor:
+
+  ```sql
+  insert into public.plus_accounts(user_id, source)
+  select id, 'liberado à mão' from auth.users where email = 'EMAIL_DA_CONTA';
+  ```
+
+  A página pública fica em `/lista/<endereço>` e chama a API; `/lista/exemplo` mostra uma lista de exemplo, sem API.
+
 ## Render
 
 Crie um serviço a partir deste repositório usando o blueprint `render.yaml`, ou um serviço Docker com:
@@ -17,7 +46,8 @@ Crie um serviço a partir deste repositório usando o blueprint `render.yaml`, o
 - Health check: `/healthz`
 - `SUPABASE_URL`: URL do projeto dedicado.
 - `SUPABASE_PUBLISHABLE_KEY`: chave publishable ou anon, nunca service role.
-- `SUPABASE_SECRET_KEY`: chave secreta (ou service role) do projeto. A API a usa apenas para excluir, pela API admin do Auth, o usuário da sessão verificada. Sem ela, a exclusão de conta responde que está indisponível, o que não atende à Google Play. Ela nunca vai para o app nem para a Vercel.
+- `SUPABASE_SECRET_KEY`: chave secreta (ou service role) do projeto. A API a usa para excluir, pela API admin do Auth, o usuário da sessão verificada, para a conferência diária de preços e para as páginas públicas das listas de presentes. Sem ela, essas três respondem que estão indisponíveis; a exclusão de conta é exigida pela Google Play. Ela nunca vai para o app nem para a Vercel.
+- `CRON_SECRET`: um valor aleatório longo (por exemplo, `openssl rand -hex 32`), o mesmo guardado no Vault acima. Sem ele, `/internal/refresh-prices` responde 404.
 - `ALLOWED_ORIGINS`: URLs web exatas, separadas por vírgula, sem barra final. Inclua só o domínio de produção e as prévias que forem necessárias.
 
 O blueprint usa o plano gratuito como ponto de partida. Confirme limites e custos na conta antes de criar o serviço. O processo lê `PORT`, aceita encerramento gracioso e roda como usuário sem privilégios no contêiner.
